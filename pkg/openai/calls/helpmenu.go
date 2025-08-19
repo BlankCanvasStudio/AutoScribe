@@ -1,40 +1,70 @@
 package calls
 
 import (
-    // "os"
+    "os"
     "fmt"
 
     log "github.com/sirupsen/logrus"
 
-    "github.com/BlankCanvasStudio/AutoScribe/pkg/types"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/files"
+    "github.com/BlankCanvasStudio/AutoScribe/pkg/types"
+    "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
 )
 
 
 // Maybe this is bytes
 // func CreateHelpMenuImplementation(data types.ConcatenatedFileContents, fileFormat types.SupportedFormat) (string, error) {
 func CreateHelpMenuImplementation(fileFormat types.SupportedFormat) (string, error) {
+    log.Debugf("Input file for CreateHelpMenuImplementation: %v", config.EditFile)
+
+    if config.EditFile == "" {
+        return CreateHelpMenuImplementationSample(fileFormat)
+    }
+
+    return CreateHelpMenuAndUpdateImplementation(fileFormat)
+}
+
+
+func CreateHelpMenuAndUpdateImplementation(fileFormat types.SupportedFormat) (string, error) {
     data, err := files.FormatCodeFilesForContext()
 
     helpmenuPrompt := fmt.Sprintf(
 `Your task is to:
 1. Read all files and understand their purpose and functionality.
-2. Based on their contents, generate a **help menu implementation** (i.e., code that, when run, will print a help/usage menu) using the same programming language and packages used in the provided files.
-3. The implementation should expose commands, flags, functions, or configuration options inferred from the files.
+2. Based on their contents, generate a **help menu implementation** (i.e. code that, when run, will print a help/usage menu) using the same programming language and packages used in the provided files.
+3. Return an updated version of %v with the help menu implemented. Make sure all the original functionality is still implemented
 
-Ensure that the output:
-- Is syntactically correct for the language and integrates with existing code consistently
-- Uses the same framework or libraries found in the project (e.g., argparse vs click, commander.js vs yargs, etc.)
-- Reflects the capabilities across all provided files
-- Is production-ready and minimal
-- Do not provide details on how the code work; only provide the code
+⚠️ IMPORTANT — When responding:
+- Only output the **exact rewrite of the file**
+- Do **not** include explanations, summaries, or any additional commentary.
+- Do **not** delete any functionality to the file. You are only allowed to **add** to the code
+- Do **not** write or adjust any code that isn't related to the help menu
+- Do **not** adjust the spacing in the file
+- Do **not** adjust the number of line breaks or their placement in the file
+- Do **not** adjust any of the other cli parameters. You will break software dependencies
+- Mimic the spacing patterns used in the file
+- Mimic the layout, placement, and functionality of the snippet provided when appending to the code
 
 Here are the files:
 
-%v`, data)
+%v`, config.EditFile, data)
+
+    log.Info("Querying ai for output...")
+    helpmenuText, err := Query4_1Nano(helpmenuPrompt)
+    if err != nil {
+        return "", fmt.Errorf("failed to query 4.1 Nano: %v", err)
+    }
+
+    os.WriteFile(config.EditFile, []byte(helpmenuText), 0644)
+
+    return helpmenuText, nil
+}
 
 
-    helpmenuPrompt = fmt.Sprintf(
+func CreateHelpMenuImplementationSample(fileFormat types.SupportedFormat) (string, error) {
+    data, err := files.FormatCodeFilesForContext()
+
+    helpmenuPrompt := fmt.Sprintf(
 `Your task is to:
 1. Read all files and understand their purpose and functionality.
 2. Based on their contents, generate a **help menu implementation** (i.e. code that, when run, will print a help/usage menu) using the same programming language and packages used in the provided files.

@@ -21,12 +21,15 @@ var OpenAIKey             string
 
 var ProjectDirectory      string                = "./"
 var OutputDirectory       string                = "./"
+var EditFile             string                = ""
 var LanguageFileExtension types.SupportedFormat = "sh"
 var MakeReadme            bool                  = false
 var MakeHelpMenuImpl      bool                  = true
 var MakeHelpMenuText      bool                  = true
 
 var LogLevelDebug         bool                  = false
+
+var AdditionalPrompt      string                = ""
 
 
 func LoadConfig() error {
@@ -75,11 +78,15 @@ func ParseCli() error {
 
     flag.StringVar(&OutputDirectory, "o", "./", "Project directory / file to save output into")
 
+    flag.StringVar(&EditFile, "e", "", "Set the file you'd like AutoScribe to edit with new content")
+
     extPtr := flag.String("l", "sh", "Set the file extensions we should be targetting")
 
     flag.BoolVar(&LogLevelDebug, "debug", false, "Set log level to debug")
 
     flag.StringVar(&ConfigFile, "c", "/etc/autoscribe/autoscribe.conf", "Set the config file for AutoScribe")
+
+    flag.StringVar(&AdditionalPrompt, "p", "", "Add additional instructions to the prompt generating your output")
 
     flag.Parse()
 

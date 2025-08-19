@@ -1,127 +1,162 @@
 # AutoScribe
 
-AutoScribe is a command-line tool designed to automate the generation of project documentation and help menus by leveraging AI capabilities. It analyzes your project's codebase, build scripts, and related files to create comprehensive README files and help menu implementations, streamlining documentation efforts for developers.
+AutoScribe is a command-line tool designed to analyze your project files and generate helpful documentation and code components automatically by leveraging AI language models. It can create README files, help menus, and implementation templates tailored for your codebase, streamlining the documentation and development process.
 
-## Features
-- Automatically generates a detailed README.md describing project setup, dependencies, and usage.
-- Creates help menu code implementations compatible with your project's programming language.
-- Produces help menu text snippets suitable for command-line interfaces.
-- Supports multiple scripting and programming formats, including shell scripts and Go files.
+## Purpose
+
+The primary goal of AutoScribe is to assist developers in documenting and enhancing their projects by programmatically generating README files, help menus, and code snippets that fit seamlessly with the existing code structure. It utilizes OpenAI’s models to understand project contents and produce relevant outputs.
 
 ## Dependencies
-- Go 1.16+ (for compiling and running the application)
-- Git (for walking through the project directory)
-- External Go modules:
-  - [`github.com/sirupsen/logrus`](https://github.com/sirupsen/logrus)
-  - [`gopkg.in/yaml.v3`](https://gopkg.in/yaml.v3)
-  - [`github.com/openai/openai-go/v2`](https://github.com/openai/openai-go)
 
-## Architecture
-- `cmd/main.go`: Entry point for the application, orchestrates command execution based on CLI flags.
-- `pkg/config`: Handles configuration loading from file or environment variables.
-- `pkg/files`: Reads and formats project files for AI analysis.
-- `pkg/files/selection`: Filters project files for code and build scripts.
-- `pkg/openai/calls`: Contains functions for querying OpenAI's API to generate help menus and documentation.
-- `pkg/types`: Defines supported formats and related utilities.
-- `Makefile`: Builds the project and installs the executable.
+- Go (version 1.18+ recommended)
+- Make (for building the project)
+- External Go packages:
+  - github.com/sirupsen/logrus
+  - github.com/openai/openai-go/v2
+  - github.com/BlankCanvasStudio/AutoScribe/pkg/types
+
+## Architecture Overview
+
+- **cmd/main.go**: Entry point for the application, managing command-line arguments and orchestrating actions.
+- **pkg/config/load.go**: Loads configuration from file or environment.
+- **pkg/files/formatting.go**: Handles file content concatenation and formatting.
+- **pkg/files/selection.go**: Filters project files based on language or build criteria.
+- **pkg/openai/calls/helpmenu.go**: Contains functions to generate help menu code and text via AI.
+- **pkg/openai/calls/readme.go**: Creates a comprehensive README file using AI.
+- **pkg/types/types.go**: Defines supported formats and utilities for file extension handling.
+- **Makefile**: Provides build and install commands.
 
 ## Installation
 
 ### Prerequisites
-Ensure you have Go installed:
-```sh
-go version
+
+- Ensure Go is installed:
+```bash
+https://golang.org/dl/
 ```
 
-### Build the Application
-Clone the repository and build:
-```sh
-git clone <repository_url>
-cd <repository_directory>
+### Building from Source
+
+Clone the repository:
+
+```bash
+git clone https://github.com/BlankCanvasStudio/AutoScribe.git
+cd AutoScribe
+```
+
+Build the project:
+
+```bash
 make
 ```
 
-This will generate the `build/autoscribe` executable.
+This will compile the executable `autoscribe` inside the `build/` directory.
 
-### Install
-To install the executable system-wide:
-```sh
+### Installing
+
+To install the autoScribe binary system-wide:
+
+```bash
 sudo make install
 ```
 
-It copies the binary to `/usr/local/bin/autoscribe` and ensures configuration files are in place.
+This copies the executable to `/usr/local/bin/autoscribe` and sets up the default configuration file in `/etc/autoscribe/autoscribe.conf`.
 
 ## Configuration
 
-### API Key
-Set your OpenAI API key through environment variable:
-```sh
-export OPENAI_API_KEY="your-openai-api-key"
-```
+1. Edit the configuration file `/etc/autoscribe/autoscribe.conf` to set your OpenAI API key:
 
-Alternatively, place your API key in `/etc/autoscribe/autoscribe.conf`:
 ```yaml
 OPENAI_API_KEY: "your-openai-api-key"
 ```
 
-### CLI Flags
-You can customize behavior via command-line options:
+2. Alternatively, set the environment variable:
 
-| Flag | Description | Default | Example |
-|---|---|---|---|
-| `-r` | Generate a README.md for the project | false | `-r` |
-| `-m` | Generate a help menu implementation | false | `-m` |
-| `-mt` | Generate help menu text | true | `-mt` |
-| `-d` | Specify the project directory | `./` | `-d ./myproject` |
-| `-o` | Specify output directory | `./` | `-o ./output` |
-| `-l` | Set file extension target (`sh`, `go`, etc.) | `sh` | `-l go` |
-| `-debug` | Enable debug logging | false | `-debug` |
-| `-c` | Path to config file | `/etc/autoscribe/autoscribe.conf` | `-c ./config.yaml` |
+```bash
+export OPENAI_API_KEY="your-openai-api-key"
+```
+
+3. Customize other options by passing command-line flags (see Usage below).
 
 ## Usage
 
-### Generate README.md
-```sh
-./autoscribe -r -d /path/to/project
+Run the tool with desired options:
+
+```bash
+# Generate a README.md for the current project
+autoscibe -r
+
+# Generate a help menu implementation
+autoscibe -m
+
+# Generate only help menu text
+autoscibe -mt
+
+# Specify project directory
+autoscibe -d ./myproject
+
+# Specify output directory
+autoscibe -o ./output
+
+# Specify file to edit or generate
+autoscibe -e ./file.go
+
+# Set language file extension (default is 'sh')
+autoscibe -l go
+
+# Enable debug logging
+autoscibe -debug
 ```
 
-### Generate Help Menu Implementation
-```sh
-./autoscribe -m -d /path/to/project
+### Examples
+
+- Generate a README based on current directory project files:
+
+```bash
+autoscibe -r
 ```
 
-### Generate Help Menu Text
-```sh
-./autoscribe -mt -d /path/to/project
+- Generate a help menu implementation for the project:
+
+```bash
+autoscibe -m
 ```
 
-## Examples
+- Update a file with a new help menu implementation
 
-### Creating a README
-```sh
-./autoscribe -r -d ./myproject
+```bash
+autoscibe -m -e ./main.go
 ```
 
-### Generating Help Menu Code (e.g., in Go)
-```sh
-./autoscribe -m -d ./myproject -l go
+- Generate only the help menu text that describes commands and options:
+
+```bash
+autoscibe -mt
 ```
 
-### Generating Help Menu Text for Shell Scripts
-```sh
-./autoscribe -mt -d ./scripts -l sh
+- Output files to a specified directory:
+
+```bash
+autoscibe -d ./myproject -o ./docs
 ```
 
-## Building and Installing
-```sh
-make
-sudo make install
+- Set the language format to Go:
+
+```bash
+autoscibe -l go
 ```
 
-This will compile the application and copy the binary to `/usr/local/bin/autoscribe`.
+## Important Notes
+
+- The tool relies on the OpenAI API; ensure your API key has sufficient quota.
+- It processes project files based on the specified or default language extension.
+- Generated contents are based on AI understanding and may require manual review.
 
 ## License
-This project is open source and available under the MIT License.
 
----
-**Note:** Replace `<repository_url>` and `<repository_directory>` with the actual URLs when deploying or using this project.
+This project is licensed under the MIT License. See `LICENSE` for details.
+
+## Contact
+
+For issues or contributions, please open an issue on the GitHub repository:
+[https://github.com/BlankCanvasStudio/AutoScribe](https://github.com/BlankCanvasStudio/AutoScribe)

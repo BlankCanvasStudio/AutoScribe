@@ -13,6 +13,8 @@ import (
 
 
 func FilterForCodeFiles(directory string) ([]string, error) {
+    log.Debugf("Filtering for %v code files in: %v", config.LanguageFileExtension, config.ProjectDirectory)
+
     // Collect all the files in question
     var files []string
 
@@ -46,6 +48,7 @@ func FilterForCodeFiles(directory string) ([]string, error) {
 
     return files, nil
 }
+
 
 func FilterForBuildFiles(directory string) ([]string, error) {
     // Collect all the files in question
@@ -87,5 +90,4 @@ func FilterForBuildFiles(directory string) ([]string, error) {
 
     return files, nil
 }
-
 

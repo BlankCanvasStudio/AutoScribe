@@ -18,6 +18,10 @@ func Query4_1Nano(msg string) (string, error) {
         option.WithAPIKey(config.OpenAIKey),
     )
 
+    if config.AdditionalPrompt != "" {
+        msg += fmt.Sprintf("\n-----------------------\nAdditionally:\n%v\n", config.AdditionalPrompt)
+    }
+
     chatCompletion, err := client.Chat.Completions.New(context.TODO(), openai.ChatCompletionNewParams{
         Messages: []openai.ChatCompletionMessageParamUnion{
             openai.UserMessage(msg),
