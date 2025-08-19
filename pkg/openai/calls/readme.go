@@ -33,12 +33,12 @@ The README should:
 - Document any important dependencies or architectures in the codebase.
 - Use proper Markdown formatting.
 - If there is a Makefile or other build system, include the configuration, building, and installation steps using that system
+- Do not write your own shell script to install the code, unless no build system is provided
+- Use resources in the project, detail how to: install dependencies, build code, install necessary parts of the package
 - If the installation and build process includes multiple steps, you can add extra documentation for those steps, but don't be too verbose
 - Do not include *End of README.* or any similar stort of annotations
-
-**IMPORTANT:**
-- Use the build and install commands given by the build system. Do not write your own shell script to install the code, unless no build system is provided
-- For build process make sure to include: installing dependencies, building code, installing necessary parts of package. **Use existing build system wherever possible; don't write your own code if you don't have to**
+- Make sure to document all command line options and their effect
+- Make the output pretty, but not over the top
 
 Here are the project files:
 
