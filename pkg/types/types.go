@@ -14,10 +14,11 @@ type ConcatenatedFileContents string
 
 type SupportedFormat string
 const (
-    Shell SupportedFormat  = "sh"
-    Golang SupportedFormat = "go"
-    Bash SupportedFormat   = "sh"
-    Text SupportedFormat   = "txt"
+    Shell    SupportedFormat  = "sh"
+    Golang   SupportedFormat = "go"
+    Bash     SupportedFormat   = "sh"
+    Text     SupportedFormat   = "txt"
+    MarkDown SupportedFormat   = "md"
 )
 
 var SupportedFormats = []SupportedFormat {
@@ -25,6 +26,7 @@ var SupportedFormats = []SupportedFormat {
     Golang,
     Bash,
     Text,
+    MarkDown,
 };
 
 func IsSupportedFormat(val string) (bool) {
