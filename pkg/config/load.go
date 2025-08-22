@@ -21,11 +21,12 @@ var OpenAIKey             string
 
 var ProjectDirectory      string                = "./"
 var OutputDirectory       string                = "./"
-var EditFile             string                = ""
+var EditFile              string                = ""
 var LanguageFileExtension types.SupportedFormat = "sh"
 var MakeReadme            bool                  = false
-var MakeHelpMenuImpl      bool                  = true
-var MakeHelpMenuText      bool                  = true
+var MakeHelpMenuImpl      bool                  = false
+var MakeHelpMenuText      bool                  = false
+var AstFileName           string                = ""
 
 var LogLevelDebug         bool                  = false
 
@@ -68,6 +69,8 @@ func LoadConfig() error {
 
 func ParseCli() error {
     // Set the flags
+    flag.StringVar(&AstFileName, "a", "", "Display the AST of a file")
+
     flag.BoolVar(&MakeReadme, "r", false, "Make a README.md for a project")
 
     flag.BoolVar(&MakeHelpMenuImpl, "m", false,  "Make a help 'Menu' implementation for a project")

@@ -1,8 +1,10 @@
 package main;
 
 import (
+    // "fmt"
     log "github.com/sirupsen/logrus"
 
+    "github.com/BlankCanvasStudio/AutoScribe/pkg/ast"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/openai/calls"
 )
@@ -56,6 +58,18 @@ func main() {
         log.Infof("Help menu:\n\n%v\n\n", text)
     }
 
+    if config.AstFileName != "" {
+        pkgNodes, err := ast.ParsePackage(config.AstFileName)
+        if err != nil {
+            log.Fatalf("failed to parse package: %v", err)
+        }
+
+        for _, pkg := range pkgNodes {
+            for _, decl := range pkg.FunctionDeclarations {
+                decl.PrettyPrint("")
+            }
+        }
+    }
 
     log.Info("AutoScribe-d successfully!")
 }
