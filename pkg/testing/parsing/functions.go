@@ -27,6 +27,18 @@ type Testing struct {
 
 }
 
+/**
+ * Run logs the input string using the info log level and returns nil.
+ * Use this method to record the provided string for testing purposes.
+ * 
+ * func (t Testing) Run(p string) error
+ * 
+ * @param p string - the input string to be logged
+ * @return error - always returns nil
+ * @errors - never returns an error
+ * @side effects - logs the input string
+ * @edge cases - none
+ */
 func (t Testing) Run(p string) error {
     log.Infof("input: %s", p)
     return nil
@@ -34,6 +46,15 @@ func (t Testing) Run(p string) error {
 
 type Testing2 string;
 
+/**
+* Parses a Go source file, logs function definitions, initializes an OpenAI client, and calls internal functions.
+* Use when processing and analyzing Go files with associated external API interaction.
+*
+* @param filename string - Path to the file to parse.
+* @return error - Error if parsing or AST extraction fails; otherwise nil.
+* @sideEffects - Logs function definitions and client info; calls internal functions.
+* @edgeCases - Handles parse errors, function extraction errors, and nil values gracefully.
+*/
 func ParseFile(filename string) error {
     fset := token.NewFileSet()
 

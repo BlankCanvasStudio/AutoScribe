@@ -27,6 +27,7 @@ var MakeReadme            bool                  = false
 var MakeHelpMenuImpl      bool                  = false
 var MakeHelpMenuText      bool                  = false
 var AstFileName           string                = ""
+var DocumentAst           bool                  = false
 
 var LogLevelDebug         bool                  = false
 
@@ -90,6 +91,8 @@ func ParseCli() error {
     flag.StringVar(&ConfigFile, "c", "/etc/autoscribe/autoscribe.conf", "Set the config file for AutoScribe")
 
     flag.StringVar(&AdditionalPrompt, "p", "", "Add additional instructions to the prompt generating your output")
+
+    flag.BoolVar(&DocumentAst, "docs", false, "Set log level to debug")
 
     flag.Parse()
 

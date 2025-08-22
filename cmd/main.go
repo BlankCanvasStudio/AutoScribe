@@ -65,11 +65,29 @@ func main() {
         }
 
         for _, pkg := range pkgNodes {
-            for _, decl := range pkg.FunctionDeclarations {
-                decl.PrettyPrint("")
+            if config.DocumentAst {
+                for _, f := range pkg.FunctionDeclarations {
+                    log.Infof("Documenting %v...", f.Name)
+                    ast.DocumentFunctions(f)
+                }
+                // for _, f := range pkg.FunctionDeclarations {
+                //     f.PrettyPrint("")
+                // }
+                err := pkg.UpdateDocsInFile()
+                if err != nil {
+                    log.Fatalf("failed to update doc in file: %v", err)
+                }
+            } else {
+                for _, decl := range pkg.FunctionDeclarations {
+                    decl.PrettyPrint("")
+                }
             }
+
         }
+
     }
+
+
 
     log.Info("AutoScribe-d successfully!")
 }
