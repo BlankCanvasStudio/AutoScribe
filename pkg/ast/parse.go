@@ -3,6 +3,7 @@ package ast;
 import (
     "fmt"
 
+    "slices"
     "strings"
 
     "go/ast"
@@ -30,9 +31,9 @@ var FunctionMap = map[string]*FunctionNode{}
 
 
 const (
-    ObjectCall   FunctionKind = "object"
-    PackageCall  FunctionKind = "package"
-    InternalCall FunctionKind = "internal"
+    ObjectCall     FunctionKind = "object"
+    PackageCall    FunctionKind = "package"
+    InternalCall   FunctionKind = "internal"
     FnDeclaration  FunctionKind = "declaration"
 )
 
@@ -47,7 +48,7 @@ type FunctionNode struct {
     GPTAware      bool
     Documentation string
     Calls         []*FunctionNode
-    Node          *ast.CallExpr
+    Node          ast.Node
 }
 
 
@@ -71,6 +72,7 @@ func (f *FunctionNode) PrettyPrint(prefix string) {
 
     fmt.Printf("%v File: %v\n", prefix, f.File)
     fmt.Printf("%v Package: %v\n", prefix, f.Package)
+    fmt.Printf("%v Node: %+v\n", prefix, f.Node)
 
     for _, called := range f.Calls {
         fmt.Println("")
@@ -78,6 +80,7 @@ func (f *FunctionNode) PrettyPrint(prefix string) {
         called.PrettyPrint(prefix + "\t")
     }
 }
+
 
 type PackageNode struct {
     *packages.Package
@@ -189,11 +192,13 @@ func (p *PackageNode) AddToFunctionDeclarations(f *ast.File) error {
     })
 
     for _, node := range funcs {
+        // Create a new function node for the newly declared function
         newFuncNode := p.CreateFunctionNodeFromDecl(node)
-        if newFuncNode.Name == "PrettyPrint" {
-            continue
-        }
+        // if newFuncNode.Name == "PrettyPrint" {
+        //     continue
+        // }
 
+        // Properly save it to the global list without invalidating existing pointers
         possibleFuncNode, exists := FunctionMap[newFuncNode.FullName()]
         if exists { // If it exists in function map, something else has referenced it, but it hasn't been declared yet
             // Set the value at the pointer in the map to the full, updated value (only 1 delcaration possible)
@@ -202,11 +207,13 @@ func (p *PackageNode) AddToFunctionDeclarations(f *ast.File) error {
             newFuncNode = possibleFuncNode
         }
 
-        // Only technically does something when !exists
+        // Only really does something when !exists
         FunctionMap[newFuncNode.FullName()] = newFuncNode
 
+        // Save our newly declared function to the package object
         p.FunctionDeclarations = append(p.FunctionDeclarations, newFuncNode)
 
+        // Get all the function invocations call in this function
         invocations, err := GetFunctionInvocations(node)
         if err != nil {
             return fmt.Errorf("failed to get function invocations: %v", err)
@@ -253,6 +260,7 @@ func (p *PackageNode) CreateFunctionNodeFromDecl(f *ast.FuncDecl) *FunctionNode 
         File: p.CurrentFile,
         Calls: []*FunctionNode{},
         Object: obj,
+        Node: f,
     }
 }
 
@@ -264,6 +272,7 @@ func (p *PackageNode) CreateFunctionNodeFromCall(fun *ast.CallExpr) *FunctionNod
             Name: sel.Name,
             Package: p.ID,
             Kind: InternalCall,
+            Node: fun,
         }
     }
 
@@ -278,6 +287,7 @@ func (p *PackageNode) CreateFunctionNodeFromCall(fun *ast.CallExpr) *FunctionNod
                             Name: sel.Sel.Name,
                             Package: p.Imports[pkg_name],
                             Kind: PackageCall,
+                            Node: fun,
                     }
                 }
             }
@@ -287,6 +297,44 @@ func (p *PackageNode) CreateFunctionNodeFromCall(fun *ast.CallExpr) *FunctionNod
     // This must be an object function call / member variable
     node, _ := ConvertToFunctionNode(fun, p.Fset, p.TypesInfo, "")
     return node
+}
+
+
+func (p *PackageNode) ClipCyclicGraphs() error {
+    for _, decl := range p.FunctionDeclarations {
+        callStack := []string{}
+        err := p.ClipFunctionCycles(decl, callStack)
+        if err != nil {
+            return fmt.Errorf("failed to clip function cycles: %v", err)
+        }
+    }
+
+    return nil
+}
+
+
+// I'm going to assume we can write docs for "deepest" node in call stack without the above.
+// Empirical data will lmk if that's wrong.
+// Generally, programmers should avoid this pattern, unless its recursive, and my strat 
+//   works for the recursive case.
+func (p *PackageNode) ClipFunctionCycles(f *FunctionNode, callStack []string) error {
+    to_remove := []int{}
+    for i, call := range f.Calls {
+        // Remove the repeated node from the calls array, but don't descend it.
+        // If you descend it, all the nodes above it will be removed as well (since they've 
+        //   already been included in the list)
+        if slices.Contains(callStack, call.FullName()) {
+            to_remove = append(to_remove, i)
+        } else {
+            p.ClipFunctionCycles(call, append(callStack, f.FullName()))
+        }
+    }
+
+    for i := len(to_remove) - 1 ; i >= 0 ; i-- {
+        f.Calls = append(f.Calls[:to_remove[i]], f.Calls[to_remove[i] + 1:]...)
+    }
+
+    return nil
 }
 
 
@@ -335,11 +383,12 @@ func ConvertToFunctionNode(fun *ast.CallExpr, fset *token.FileSet, info *types.I
     }
 
     return &FunctionNode {
-                            Name: funcName,
-                            Object: typeName,
-                            Package: pkgPath,
-                            File: file,
-                            Kind: ObjectCall,
+        Name: funcName,
+        Object: typeName,
+        Package: pkgPath,
+        File: file,
+        Kind: ObjectCall,
+        Node: fun,
     }, nil
 }
 
@@ -443,6 +492,14 @@ func ParsePackage(foldername string) ([]PackageNode, error) {
         }
 
         pkgNodes = append(pkgNodes, pkgNode)
+    }
+
+    // Function call stacks can be cyclic graphs. We clip those cyclic graphs here
+    for _, pkgNode := range pkgNodes {
+        err = pkgNode.ClipCyclicGraphs()
+        if err != nil {
+            return nil, fmt.Errorf("failed to clip cyclic graphs: %v", err)
+        }
     }
 
     return pkgNodes, nil
