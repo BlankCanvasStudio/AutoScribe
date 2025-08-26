@@ -28,39 +28,43 @@ type Testing struct {
 }
 
 /**
- * Run logs the input string using the info log level and returns nil.
- * Use this method to record the provided string for testing purposes.
- * 
- * func (t Testing) Run(p string) error
- * 
- * @param p string - the input string to be logged
- * @return error - always returns nil
- * @errors - never returns an error
- * @side effects - logs the input string
- * @edge cases - none
+ * Runs the test with the given input string.
+ *
+ * @param p  the input string to process
+ * @return   always returns nil
+ *
+ * Side Effects:
+ * - Logs the input at info level
  */
 func (t Testing) Run(p string) error {
+    // Commnet #1
     log.Infof("input: %s", p)
+    // Comment #2 
+    // And its multi-line
     return nil
 }
 
 type Testing2 string;
 
+
+
+
+
 /**
-* Parses a Go source file, logs function definitions, initializes an OpenAI client, and calls internal functions.
-* Use when processing and analyzing Go files with associated external API interaction.
-*
-* @param filename string - Path to the file to parse.
-* @return error - Error if parsing or AST extraction fails; otherwise nil.
-* @sideEffects - Logs function definitions and client info; calls internal functions.
-* @edgeCases - Handles parse errors, function extraction errors, and nil values gracefully.
-*/
+ * Parses a Go source file specified by its filename. Handles file parsing, retrieves function definitions, logs information, and initializes an OpenAI client.
+ *
+ * Signature: func ParseFile(filename string) error
+ *
+ * Parameters:
+ * - filename: string, the path to the Go source file to parse.
+ *
+ */
 func ParseFile(filename string) error {
     fset := token.NewFileSet()
 
     // Will need to handle this case
     t := Testing{}
-    t.Run()
+    t.Run("some input")
 
     f, err := parser.ParseFile(fset, filename, nil, parser.AllErrors)
     if err != nil {

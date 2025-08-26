@@ -4,11 +4,12 @@ import (
     "os"
     "fmt"
 
-    "go/ast"
+    // "go/ast"
 
-    // log "github.com/sirupsen/logrus"
+    log "github.com/sirupsen/logrus"
 
     "github.com/BlankCanvasStudio/AutoScribe/pkg/openai/calls"
+    "github.com/BlankCanvasStudio/AutoScribe/pkg/openai/formatting"
 )
 
 var AiDocumentPromptV1 string = `
@@ -70,39 +71,41 @@ Output format (omit irrelevant/trivial):
 --- END CODE ---`
 
 
-// Should add parsing to this to drop anything that isn't a comment
-func DocumentFunctions(f *FunctionNode) error {
+/**
+ * Generates documentation for the given FunctionInfo if it has not been documented or AI-aware.
+ * Recursively processes called functions and updates the FunctionInfo with generated documentation.
+ *
+ * @param f *FunctionInfo: the function information to document.
+ * @return error: if an error occurs during processing or querying.
+ */
+func DocumentFunctions(f *FunctionInfo) error {
     // Consider how gpt aware gets loaded
-    if f.AiAware || f.Documented {
+    if f.AiAware || f.Documented || f.WasDocumented {
         return nil
     }
 
-    for i := range(len(f.Calls)) {
-        if !f.Calls[i].Documented && !f.Calls[i].AiAware {
-            // log.Infof("%v: %v", f.Calls[i].Name, f.Calls[i].Documented)
+    if f.Declaration == nil {
+        log.Infof("No declaration for `%v`. Assuming its defined in another package...", f.Name)
+        return nil
+    }
+
+    for i := range(len(f.Declaration.Calls)) {
+        if !f.Declaration.Calls[i].Info.Documented && !f.Declaration.Calls[i].Info.AiAware {
             // Recursively document if we need to
-            err := DocumentFunctions(f.Calls[i])
+            err := DocumentFunctions(f.Declaration.Calls[i].Info)
             if err != nil {
-                return fmt.Errorf("failed to document call %v in %v: %v", f.Calls[i].Name, f.Name, err)
+                return fmt.Errorf("failed to document call %v in %v: %v", f.Declaration.Calls[i].Info.Name, f.Name, err)
             }
         }
     }
-
-    // We only want to document function declarations
-    if f.Kind != FnDeclaration {
-        return nil
-    }
-
-    if fd, ok := f.Node.(*ast.FuncDecl); !ok || fd.Doc != nil {
-        return nil
-    }
-
 
     // By this point all nodes are either GPT aware or documented
     NodeAsAiText, err := f.ToStringForGPT()    
     if err != nil {
         return fmt.Errorf("failed to convert FunctionNode to GPT string: %v", err)
     }
+
+    log.Debugf("GPT Prompt for %v (%v):\n\n%v\n", f.Name, f.File, NodeAsAiText)
 
     FullDocumentationQuery := fmt.Sprintf(AiDocumentPrompt, f.Language, NodeAsAiText)
 
@@ -111,31 +114,30 @@ func DocumentFunctions(f *FunctionNode) error {
         return fmt.Errorf("failed to query 4.1 Nano: %v", err)
     }
 
-    f.Documentation = DocumentationString
-
-    // Actually moving this outside the loop. That way we can tell if we need to update docs or 
-    //  not based on init presence of goDoc
-    /*
-    fd, ok := f.Node.(*ast.FuncDecl)
-    if ok {
-        // Add the comment in properly
-        fd.Doc = &ast.CommentGroup{
-            List: []*ast.Comment{
-                {Text: DocumentationString},
-            },
-        }
+    DocumentedComment, err := formatting.FormatAsGoComment(DocumentationString)
+    if err != nil {
+        return fmt.Errorf("failed to parse for comments: %v", err)
     }
-    */
+
+    f.Documentation = DocumentedComment
 
     f.Documented = true;
-
-    // log.Infof("GPT Query: \n%v\n", FullDocumentationQuery)
-    // FullDocumentationQuery += "1"
 
     return nil
 }
 
 
+/**
+ * Inserts the given string into a file at the specified byte offset.
+ *
+ * @param path string - The path to the file.
+ * @param offset int - The byte offset at which to insert the string; must be within file bounds.
+ * @param insertion string - The string to insert into the file.
+ *
+ * @return error - Returns an error if reading the file fails, the offset is invalid, or writing the file fails.
+ *
+ * @errors: Returns an error if reading or writing the file fails, or if the offset is out of bounds.
+ */
 func insertIntoFile(path string, offset int, insertion string) error {
     data, err := os.ReadFile(path)
     if err != nil {

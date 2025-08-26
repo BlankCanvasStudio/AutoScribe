@@ -28,6 +28,7 @@ var MakeHelpMenuImpl      bool                  = false
 var MakeHelpMenuText      bool                  = false
 var AstFileName           string                = ""
 var DocumentAst           bool                  = false
+var UndocumentAst         bool                  = false
 
 var LogLevelDebug         bool                  = false
 
@@ -92,7 +93,9 @@ func ParseCli() error {
 
     flag.StringVar(&AdditionalPrompt, "p", "", "Add additional instructions to the prompt generating your output")
 
-    flag.BoolVar(&DocumentAst, "docs", false, "Set log level to debug")
+    flag.BoolVar(&DocumentAst, "docs", false, "Document the functions of a package")
+
+    flag.BoolVar(&UndocumentAst, "undocs", false, "Remove all the comments in a package")
 
     flag.Parse()
 

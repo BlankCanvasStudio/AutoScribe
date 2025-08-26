@@ -1,17 +1,15 @@
 package ast;
 
 import (
+    "os"
     "fmt"
 
-    "bytes"
     "slices"
     "strings"
 
     "go/ast"
-    "go/token"
     "go/types"
     "go/build"
-    "go/printer"
 
     "golang.org/x/tools/go/packages"
 
@@ -21,49 +19,69 @@ import (
 )
 
 
-/*
-*
-*  Try handling variable functions from another package / module
-*
-*/
-
 type FunctionKind string
 
 
-var FunctionMap = map[string]*FunctionNode{}
+var FunctionMap = map[string]*FunctionInfo{}
 
 
 const (
     ObjectCall     FunctionKind = "object"
     PackageCall    FunctionKind = "package"
     InternalCall   FunctionKind = "internal"
-    FnDeclaration  FunctionKind = "declaration"
 )
 
 
-type FunctionNode struct {
+type FunctionDecl struct {
+    Info          *FunctionInfo
+    Node          *ast.FuncDecl
+    
+    Calls         []*FunctionCall
+}
+
+type FunctionCall struct {
+    Info          *FunctionInfo
+    Node          *ast.CallExpr
+
     Kind          FunctionKind
-    Name          string
-    Package       string
-    File          string
-    Object        string
-    Documented    bool
-    AiAware      bool
-    Documentation string
-    Calls         []*FunctionNode
-    Node          ast.Node
+}
+
+type FunctionInfo struct {
+    Package       *PackageNode
+
     Language      asTypes.SupportedFormat
+
+    Name          string
+    ResolvedPkg   string
+    Object        string
+    File          string
+
+    Documentation string
+
+    WasDocumented bool // Did we find documentation for it
+    Documented    bool // Did we write documentation for it
+    AiAware       bool
+
+    Declaration   *FunctionDecl // Where the function is declared & all that jazz
 }
 
 
-/**
- * Summary: Returns the full name of the function, including package and object if present.
- * Signature: func (f *FunctionNode) FullName() string
- * Returns: A string representing the full name, formatted as "Package.Object.Name" if Object is non-empty; otherwise "Package.Name".
- * Side Effects: None.
- * Edge Cases & Assumptions: Assumes Package and Name are non-empty strings; Object may be empty.
- */
-func (f *FunctionNode) FullName() string {
+/*
+*
+ * Returns the full name of the function, including package and object if present.
+ *
+ * Signature:
+ * func (f *FunctionInfo) FullName() string
+ *
+ * Parameters:
+ *   - f: Pointer to FunctionInfo struct.
+ *
+ * Returns:
+ *   - A string representing the function's full name in the format "package.object.name" if Object is set,
+ *     otherwise "package.name".
+
+*/
+func (f *FunctionInfo) FullName() string {
     if f.Object != "" {
         return fmt.Sprintf("%s.%s.%s", f.Package, f.Object, f.Name)
     }
@@ -71,72 +89,259 @@ func (f *FunctionNode) FullName() string {
     return fmt.Sprintf("%s.%s", f.Package, f.Name)
 }
 
-/**
- * PrettyPrint outputs a formatted representation of the FunctionNode and its calls to standard output.
- * Use it for debugging or visual inspection of function call structures.
+
+/*
+*
+ * Returns the full name of the function, including package and object if present.
  *
- * func (f *FunctionNode) PrettyPrint(prefix string)
+ * Signature:
+ * func (f *FunctionCall) FullName() string
  *
- * @param prefix string: indentation or prefix string for formatting output.
- */
-func (f *FunctionNode) PrettyPrint(prefix string) {
+ * Parameters:
+ *   - f: Pointer to FunctionCall instance.
+ *
+ * Returns:
+ *   - A string representing the function's full name in the format "package.object.name" if Object is set, otherwise "package.name".
+ *
+ * Errors/Exceptions:
+ *   - None.
+ *
+ * Side Effects:
+ *   - None.
+ *
+ * Edge Cases & Assumptions:
+ *   - Assumes f.Info.FullName() correctly constructs the name based on Object presence.
+ *   - Does not handle nil f or f.Info; expects valid receiver.
+
+*/
+func (f *FunctionCall) FullName() string {
+    return f.Info.FullName()
+}
+
+
+/*
+*
+ * Returns the full name of the function, including package and object if present.
+ *
+ * Signature:
+ * func (f *FunctionDecl) FullName() string
+ *
+ * Parameters:
+ *   - f: Pointer to FunctionDecl instance.
+ *
+ * Returns:
+ *   - A string representing the function's full name in the format "package.object.name" if Object is set, otherwise "package.name".
+
+*/
+func (f *FunctionDecl) FullName() string {
+    return f.Info.FullName()
+}
+
+
+/*
+*
+ * Summarizes and displays detailed information about a FunctionInfo instance.
+ *
+ * @param prefix String prefix used for indentation.
+ *
+ * Prints the function's qualified name, file, package, and optional documentation.
+ * If the Declaration field is present, recursively prints information about each called function.
+
+*/
+func (f *FunctionInfo) PrettyPrint(prefix string) {
     fmt.Println("")
     fmt.Println("")
 
     if f.Object == "" {
-        fmt.Printf("%v %v (%v)\n", prefix, f.Name, f.Kind)
+        fmt.Printf("%v %v\n", prefix, f.Name)
     } else {
-        fmt.Printf("%v %v.%v (%v)\n", prefix, f.Object, f.Name, f.Kind)
+        fmt.Printf("%v %v.%v\n", prefix, f.Object, f.Name)
     }
 
     fmt.Printf("%v File: %v\n", prefix, f.File)
     fmt.Printf("%v Package: %v\n", prefix, f.Package)
-    fmt.Printf("%v Node: %+v\n", prefix, f.Node)
+
     if f.Documentation != "" {
         fmt.Printf("%v Documentation:\n%v\n", prefix, f.Documentation)
     }
 
-    for _, called := range f.Calls {
+    if f.Declaration == nil {
+        return
+    }
+
+    for _, called := range f.Declaration.Calls {
         fmt.Println("")
         fmt.Println("")
-        called.PrettyPrint(prefix + "\t")
+        called.Info.PrettyPrint(prefix + "\t")
     }
 }
 
 
 /**
- * Converts the FunctionNode's AST node to its source code representation suitable for GPT processing.
- * Uses the Go printer to generate a string from the node, assuming only one level of recursion.
- * 
- * @param f *FunctionNode: The function node to convert.
- * @return string: The source code string of the node.
- * @return error: Returns nil if conversion succeeds; otherwise, an error if printing fails.
+ * Summarizes detailed information about the FunctionDecl instance.
+ *
+ * Signature:
+ *   func (f *FunctionDecl) PrettyPrint(prefix string)
+ *
+ * Parameters:
+ *   prefix: string - a string to prepend to each line for formatting purposes.
+ *
+ * Notes:
+ *   - If the Object associated with the FunctionDecl is empty, prints the function name.
+ *   - Otherwise, prints Object.Name.
+ *   - Includes information about the file, package, documentation, and recursively about called functions.
  */
-func (f *FunctionNode) ToStringForGPT() (string, error) {
-    // This should only be one layer deep. We are using comments to avoid the recursion
-    var buf bytes.Buffer
-    printer.Fprint(&buf, token.NewFileSet(), f.Node)
-    src := buf.String()
+func (f *FunctionDecl) PrettyPrint(prefix string) {
+    f.Info.PrettyPrint(prefix)
+}
 
-    return src, nil
+
+/**
+ * Converts the FunctionDecl to a string suitable for GPT analysis, embedding documentation comments.
+ *
+ * Signature:
+ *   func (f *FunctionDecl) ToStringForGPT() (string, error)
+ *
+ * Parameters:
+ *   - f: *FunctionDecl; the function declaration to process.
+ *
+ * Returns:
+ *   - string: the source code of the function with embedded documentation comments.
+ *   - error: if reading the source file fails.
+ *
+ * Errors/Exceptions:
+ *   - Returns an error if os.ReadFile fails.
+ *
+ * Side Effects:
+ *   - Reads the source file specified in f.Info.File.
+ *   - Modifies the source code string by embedding documentation comments.
+ *
+ * Edge Cases & Assumptions:
+ *   - Assumes f.FindStartEnd() correctly identifies the function's position in the source file.
+ *   - Assumes f.Calls contains relevant call nodes, and their start/end can be adjusted and annotated.
+ */
+func (f *FunctionDecl) ToStringForGPT() (string, error) {
+
+    // // This should only be one layer deep. We are using comments to avoid the recursion
+
+    raw, err := os.ReadFile(f.Info.File)
+    if err != nil {
+            return "", fmt.Errorf("read file: %w", err)
+    }
+
+    fd_start, fd_end := f.FindStartEnd()
+    fd_text := string(raw)[fd_start:fd_end]
+
+    for i := len(f.Calls) - 1; i >= 0; i-- {
+        fc_start, fc_end := f.Calls[i].FindStartEnd()
+
+        fc_start -= fd_start
+        fc_end  -= fd_start
+
+        docs := f.Calls[i].Info.Documentation
+        if strings.TrimSpace(docs) == "" { continue }
+        fd_text = fd_text[:fc_start] + " /* " + strings.ReplaceAll(docs, "\n", "|") + " */ " + fd_text[fc_start:]
+    }
+
+    return fd_text, nil
+}
+
+/**
+ * Converts the FunctionInfo's Declaration to a string suitable for GPT analysis.
+ *
+ * Signature:
+ *   func (f *FunctionInfo) ToStringForGPT() (string, error)
+ *
+ * Parameters:
+ *   - f: *FunctionInfo; the function info containing the declaration.
+ *
+ * Returns:
+ *   - string: the source code of the function with embedded documentation comments.
+ *   - error: if the declaration is nil.
+ *
+ * Errors/Exceptions:
+ *   - Returns an error if f.Declaration is nil.
+ *
+ * Side Effects:
+ *   - Calls f.Declaration.ToStringForGPT() to perform conversion.
+ */
+func (f *FunctionInfo) ToStringForGPT() (string, error) {
+    if f.Declaration == nil {
+        return "", fmt.Errorf("can't convery %v to string for gpt. no delcaration", f.Name)
+    }
+
+    return f.Declaration.ToStringForGPT()
+}
+
+
+/**
+ * Returns the documentation string for the FunctionInfo object. If no documentation is explicitly set,it retrieves any associated comments from the function declaration node.
+ *
+ * Signature:
+ *   func (f *FunctionInfo) GetDocumentation() (string, error)
+ *
+ * Parameters:
+ *   - f: pointer to a FunctionInfo instance.
+ *
+ * Returns:
+ *   - string: the combined documentation text.
+ *   - error: always nil.
+ * 
+ * Side Effects:
+ *   - reads the FunctionInfo's Documentation field.
+ *   - reads comment nodes from the declaration node if Documentation is empty.
+ */
+func (f *FunctionInfo) GetDocumentation() (string, error) {
+
+    docs := f.Documentation
+
+    fd := f.Declaration.Node
+
+    // We read in pre-existing docs
+    if fd.Doc != nil && f.Documentation == "" {
+        for _, el := range fd.Doc.List {
+            docs += el.Text + "\n"
+        }
+    }
+
+    return docs, nil
 }
 
 
 type PackageNode struct {
     *packages.Package
-    FunctionDeclarations []*FunctionNode
+    FunctionDeclarations []*FunctionDecl
     TypeDefinitions      []*ast.TypeSpec
     Imports              map[string]string
     CurrentFile          string
 }
 
 
-/*
-SanityCheck verifies the integrity of the PackageNode by checking for errors and the presence of syntax trees. Returns an error if issues are found; otherwise, returns nil.
-*/
+/**
+ * Performs a sanity check on the PackageNode by processing its errors and verifying the presence of syntax trees.
+ *
+ * Signature:
+ * func (p *PackageNode) SanityCheck() error
+ *
+ * Parameters:
+ * p - *PackageNode: the package node to validate.
+ *
+ * Returns:
+ * error - an error indicating issues such as missing syntax trees or encountered errors.
+ *
+ * Errors/Exceptions:
+ * Returns an error if p.Syntax is empty, indicating no syntax trees are present.
+ *
+ * Side Effects:
+ * None.
+ *
+ * Edge Cases & Assumptions:
+ * Assumes p.Errors may contain errors to be processed; the method currently creates error objects but does not handle or log them.
+ * If p.Syntax is empty, it reports this as an error.
+ */
 func (p *PackageNode) SanityCheck() error {
     for _, err := range p.Errors {
-        return fmt.Errorf("Error in %v: %v", p.ID, err)
+        fmt.Errorf("Error in %v: %v", p.ID, err)
     }
 
     if len(p.Syntax) == 0 {
@@ -148,17 +353,20 @@ func (p *PackageNode) SanityCheck() error {
 
 
 /**
-* Populates package information by processing each syntax AST in the PackageNode.
-* Updates import map, type definitions, and function declarations for each AST.
-* Returns an error if any step fails during processing.
-* Sets p.CurrentFile to the corresponding compiled Go file for each AST.
+Summary:
+Populates package information by processing each syntax AST file, updating import map, type definitions, and function declarations accordingly.
+
+Signature:
+func (p *PackageNode) PopulatePackageInformation() error
+
+Errors/Exceptions:
+Returns an error if adding to import map, expanding type definitions, or expanding function declarations fails.
 */
 func (p *PackageNode) PopulatePackageInformation() error {
 
     for i, syn_ast := range p.Syntax {
         p.CurrentFile = p.CompiledGoFiles[i]
         log.Infof("Stripping ASTs from %v: ", p.CurrentFile)
-
 
         err := p.AddToImportMap(syn_ast)
         if err != nil {
@@ -175,7 +383,10 @@ func (p *PackageNode) PopulatePackageInformation() error {
             return fmt.Errorf("failed to expand function definitions: %v", err)
         }
 
-        log.Debugf("Defines %v function(s)", len(p.FunctionDeclarations))
+    }
+
+    for _, decl := range p.FunctionDeclarations {
+        log.Debugf("defined function: %v", decl.Info.Name)
     }
 
     return nil
@@ -183,12 +394,20 @@ func (p *PackageNode) PopulatePackageInformation() error {
 
 
 /**
-Adds import declarations from an AST file to the PackageNode's Imports map.
-Use when updating the PackageNode with new import statements.
-@param f_ast *ast.File: AST of the Go source file containing import declarations.
-@return error if importing a package fails; otherwise nil.
-@side Effects: modifies p.Imports.
-*/
+ * Adds the imports from an AST file to the PackageNode's import map.
+ * For each import, it uses aliasing if present; otherwise, it determines the package name via the build system.
+ *
+ * Signature: func (p *PackageNode) AddToImportMap(f_ast *ast.File) error
+ *
+ * Parameters:
+ * - f_ast: *ast.File - The abstract syntax tree of a Go source file containing import declarations.
+ *
+ * Returns:
+ * - error: Returns an error if the build system fails to import a package.
+ *
+ * Side Effects:
+ * - Mutates the PackageNode's Imports map by adding new entries.
+ */
 func (p *PackageNode) AddToImportMap(f_ast *ast.File) error {
     if p.Imports == nil {
         p.Imports = map[string]string{}
@@ -217,11 +436,26 @@ func (p *PackageNode) AddToImportMap(f_ast *ast.File) error {
 
 
 /**
- * Adds all *ast.TypeSpec nodes within the provided ast.Node to the PackageNode's TypeDefinitions slice.
- * Use to accumulate type definitions contained in a given AST subtree.
+ * Adds type definitions found within the given AST node to the PackageNode's TypeDefinitions slice.
  *
- * @param f ast.Node: AST node representing code to process (e.g., a file or package scope).
- * @return error: always returns nil.
+ * Signature:
+ * func (p *PackageNode) AddToTypeDefinitions(f ast.Node) error
+ *
+ * Parameters:
+ * - f: ast.Node - the AST node to inspect for type specifications.
+ *
+ * Returns:
+ * - error: always nil.
+ *
+ * Side Effects:
+ * - Updates p.TypeDefinitions by appending type specifications found within f.
+ */
+
+/**
+ * Adds all *ast.TypeSpec nodes found within the provided AST node `f` to the PackageNode's TypeDefinitions slice.
+ *
+ * @param f ast.Node - the AST node to inspect for type specifications.
+ * @return error - always returns nil.
  */
 func (p *PackageNode) AddToTypeDefinitions(f ast.Node) error {
     ast.Inspect(f, func(n ast.Node) bool {
@@ -238,82 +472,69 @@ func (p *PackageNode) AddToTypeDefinitions(f ast.Node) error {
 
 
 /**
- * Summary: Adds function declarations from the provided AST file to the PackageNode, creating corresponding FunctionNode instances and recording function calls.
+ * Adds function declarations from an AST file to the PackageNode, extracting call information within each function and creating corresponding FunctionDecl nodes.
  *
- * Signature:
- * func (p *PackageNode) AddToFunctionDeclarations(f *ast.File) error
+ * Signature: func (p *PackageNode) AddToFunctionDeclarations(f *ast.File) error
  *
  * Parameters:
- *  - f: *ast.File - The AST file containing function declarations to add.
+ *   - f: *ast.File - The parsed AST file containing function declarations.
  *
  * Returns:
- *  - error: An error if retrieving function invocations fails.
+ *   - error: Returns an error if extraction of function invocations fails.
  *
- * Errors/Exceptions:
- *  - Returns an error if GetFunctionInvocations encounters an issue.
+ * Side Effects:
+ *   - Modifies the PackageNode's FunctionDeclarations slice.
+ *   - Populates FunctionDecls with new FunctionDecl objects linked to function call info.
+ *   - Updates FunctionMap via CreateFunctionCall and CreateFunctionDecl.
  */
 func (p *PackageNode) AddToFunctionDeclarations(f *ast.File) error {
     if p.FunctionDeclarations == nil {
-        p.FunctionDeclarations = []*FunctionNode{}
+        p.FunctionDeclarations = make([]*FunctionDecl, 0, len(p.Syntax))
     }
 
     // Get all the function Declarations from the AST
-    funcs := make([]*ast.FuncDecl, 0, 10)
+    decl_funcs := make([]*ast.FuncDecl, 0, len(p.Syntax))
 
     ast.Inspect(f, func(n ast.Node) bool {
         fd, ok := n.(*ast.FuncDecl)
         if ok {
-            funcs = append(funcs, fd)
+            decl_funcs = append(decl_funcs, fd)
         }
 
         return true
     })
 
-    for _, node := range funcs {
-        // Create a new function node for the newly declared function
-        newFuncNode := p.CreateFunctionNodeFromDecl(node)
-        // if newFuncNode.Name == "PrettyPrint" {
-        //     continue
-        // }
 
-        // Properly save it to the global list without invalidating existing pointers
-        possibleFuncNode, exists := FunctionMap[newFuncNode.FullName()]
-        if exists { // If it exists in function map, something else has referenced it, but it hasn't been declared yet
-            // Set the value at the pointer in the map to the full, updated value (only 1 delcaration possible)
-            (*possibleFuncNode) = (*newFuncNode)
-            // Set the newFuncNode pointer equal to the pointer in the dictionary
-            newFuncNode = possibleFuncNode
-        }
 
-        // Only really does something when !exists
-        FunctionMap[newFuncNode.FullName()] = newFuncNode
-
-        // Save our newly declared function to the package object
-        p.FunctionDeclarations = append(p.FunctionDeclarations, newFuncNode)
-
-        // Get all the function invocations call in this function
-        invocations, err := GetFunctionInvocations(node)
+    for _, decl := range decl_funcs {
+        // Get all the function invocations called in this function
+        invocations, err := GetFunctionInvocations(decl)
         if err != nil {
             return fmt.Errorf("failed to get function invocations: %v", err)
         }
 
-        Calls := make([]*FunctionNode, len(invocations))
+        Calls := make([]*FunctionCall, 0, len(invocations)) // Not necessarily full length. Typecasts
 
-        for i, invoc := range invocations {
-            // Create a new node from the call
-            newNode := p.CreateFunctionNodeFromCall(invoc)
-            // Check if the node exists in the map
-            recordedNode, exists := FunctionMap[newNode.FullName()]
-
-            if exists { // use recorded
-                Calls[i] = recordedNode
-            } else { // use new node and add to map
-                Calls[i] = newNode
-                FunctionMap[newNode.FullName()] = newNode
+        // Iterate over all the function infos
+        for _, invoc := range invocations {
+            // Create a new node from the call (proper finfo set up in the call)
+            newNode := p.CreateFunctionCall(invoc)
+            if newNode == nil { // Technically a typecast
+                continue
             }
+
+            Calls = append(Calls, newNode)
         }
 
+        // Create a new function node for the newly declared function
+        newFuncNode := p.CreateFunctionDecl(decl)
+
         newFuncNode.Calls = Calls
+
+        // Save our newly declared function to the package object
+        p.FunctionDeclarations = append(p.FunctionDeclarations, newFuncNode)
+
+        log.Infof("Declaration later: %v", FunctionMap[newFuncNode.FullName()].Declaration)
     }
 
     return nil
@@ -321,15 +542,18 @@ func (p *PackageNode) AddToFunctionDeclarations(f *ast.File) error {
 
 
 /**
- * Creates a new FunctionNode from a given *ast.FuncDecl, capturing relevant details.
- * Use this when converting a function declaration in the AST to a FunctionNode.
- *
- * @param f *ast.FuncDecl - the function declaration AST node.
- * @return *FunctionNode - the constructed function node with metadata and documentation.
- *
- * The created node includes function name, package ID, current file, associated object name (if method), AST node, and documentation.
+ * Summary: Creates a FunctionDecl object from a function declaration, establishing associated metadata and linking to existing function information if available.
+ * Signature: func (p *PackageNode) CreateFunctionNodeFromDecl(f *ast.FuncDecl) *FunctionDecl
+ * Parameters:
+ *   - f: *ast.FuncDecl - The function declaration to process.
+ *   - p: *PackageNode - The package context containing type info and current file.
+ * Returns:
+ *   - *FunctionDecl: The created FunctionDecl node with linked info.
+ * Errors/Exceptions: None.
+ * Side Effects: Updates FunctionMap with the new function info if it doesn't already exist.
+ * Edge Cases & Assumptions: Assumes 'f' is a valid AST function declaration; 'TypesInfo' is properly populated. 
  */
-func (p *PackageNode) CreateFunctionNodeFromDecl(f *ast.FuncDecl) *FunctionNode {
+func (p *PackageNode) CreateFunctionNodeFromDecl(f *ast.FuncDecl) *FunctionDecl {
     obj := ""
 
     typeName, found := MethodRecvNamed(f, p.TypesInfo)
@@ -337,69 +561,217 @@ func (p *PackageNode) CreateFunctionNodeFromDecl(f *ast.FuncDecl) *FunctionNode 
         obj = typeName.Obj().Id()
     }
 
+    // Create a POSSIBLE object
+    fInfo := &FunctionInfo{
+        Package: p,
 
-    return &FunctionNode {
-        Kind: FnDeclaration,
         Name: f.Name.String(),
-        Package: p.ID,
-        File: p.CurrentFile,
-        Calls: []*FunctionNode{},
+        ResolvedPkg: p.ID,
         Object: obj,
-        Node: f,
+        File: p.CurrentFile,
+
         Documentation: f.Doc.Text(),
-    }
-}
-
-
-// CreateFunctionNodeFromCall creates a FunctionNode representing the called function.
-// It distinguishes between internal calls, package calls, and fallback conversions.
-// Use it to generate a FunctionNode for a given ast.CallExpr based on call type.
-func (p *PackageNode) CreateFunctionNodeFromCall(fun *ast.CallExpr) *FunctionNode {
-    // Fast track for internal package function calls
-    if sel, ok := fun.Fun.(*ast.Ident); ok {
-        return &FunctionNode {
-            Name: sel.Name,
-            Package: p.ID,
-            Kind: InternalCall,
-            Node: fun,
-        }
+        
+        WasDocumented: f.Doc.Text() == "",
+        Documented: false,
+        AiAware: false,
     }
 
-    // If X is an identifier that resolves to a *types.PkgName, it's pkg.Sym.
-    if sel, ok := fun.Fun.(*ast.SelectorExpr); ok {
-        if id, ok := sel.X.(*ast.Ident); ok {
-            if obj := p.TypesInfo.Uses[id]; obj != nil {
-                if _, isPkg := obj.(*types.PkgName); isPkg {
-                    pkg_name := types.ExprString(sel.X)
-
-                    return &FunctionNode {
-                            Name: sel.Sel.Name,
-                            Package: p.Imports[pkg_name],
-                            Kind: PackageCall,
-                            Node: fun,
-                    }
-                }
-            }
-        }
+    // Check if we have a function definition set up in the map.
+    //   This would happen if call was experienced before we saw definition
+    if possibleInfo, exists := FunctionMap[fInfo.FullName()]; exists {
+        fInfo = possibleInfo
+    } else {
+        FunctionMap[fInfo.FullName()] = fInfo
     }
 
-    // This must be an object function call / member variable
-    node, _ := ConvertToFunctionNode(fun, p.Fset, p.TypesInfo, "")
-    return node
+    fDecl := &FunctionDecl {
+        Info: fInfo,
+        Node: f,
+
+        Calls: []*FunctionCall{},
+    }
+
+    fInfo.Declaration = fDecl 
+
+    return fDecl
 }
 
 
 /**
- * Cleans up cyclic graph references within the package's function declarations.
- * Iterates through each FunctionDeclaration and removes cycles by invoking ClipFunctionCycles.
+ * Creates a new FunctionDecl for the given ast.FuncDecl.
+ * Initializes FunctionInfo with package, name, documentation, and file info.
+ * Checks for existing FunctionInfo in FunctionMap and updates if found.
+ * Associates the FunctionDecl with its FunctionInfo.
+ * 
+ * @param f: *ast.FuncDecl - the function declaration to process.
+ * @return: *FunctionDecl - the constructed FunctionDecl with linked FunctionInfo.
+ */
+func (p *PackageNode) CreateFunctionDecl(f *ast.FuncDecl) *FunctionDecl {
+    obj := ""
+
+    typeName, found := MethodRecvNamed(f, p.TypesInfo)
+    if found {
+        obj = typeName.Obj().Id()
+    }
+
+    // Create a POSSIBLE object
+    fInfo := &FunctionInfo{
+        Package: p,
+
+        Name: f.Name.String(),
+        ResolvedPkg: p.ID,
+        Object: obj,
+        File: p.CurrentFile,
+
+        Documentation: f.Doc.Text(),
+        
+        WasDocumented: f.Doc.Text() != "",
+        Documented: false,
+        AiAware: false,
+    }
+
+    // Check if we have a function definition set up in the map.
+    //   This would happen if call was experienced before we saw definition
+    if possibleInfo, exists := FunctionMap[fInfo.FullName()]; exists {
+        docs := f.Doc.Text()
+        fInfo = possibleInfo
+        fInfo.Documentation = docs
+        fInfo.File = p.CurrentFile
+        fInfo.WasDocumented = docs != ""
+    }
+
+    fDecl := &FunctionDecl {
+        Info: fInfo,
+        Node: f,
+
+        Calls: []*FunctionCall{},
+    }
+
+    fInfo.Declaration = fDecl 
+
+    FunctionMap[fInfo.FullName()] = fInfo
+
+    return fDecl
+}
+
+
+/**
+Summary: Creates a FunctionCall object from a given ast.CallExpr, populating function information based on call expression type.
+
+Signature: func (p *PackageNode) CreateFunctionCall(fun *ast.CallExpr) *FunctionCall
+
+Parameters:
+- fun: *ast.CallExpr - The call expression node to process.
+
+Returns:
+- *FunctionCall - The constructed FunctionCall with populated Node and Info.
+
+Errors/Exceptions:
+- Logs fatal error if fun.Fun is an unexpected type.
+
+Side Effects:
+- May modify the global FunctionMap with new FunctionInfo entries.
+
+Edge Cases & Assumptions:
+- Returns nil if the call expression represents a type cast (ArrayType).
+- Assumes valid type switches on fun.Fun.
+*/
+func (p *PackageNode) CreateFunctionCall(fun *ast.CallExpr) *FunctionCall {
+    // Make FCall and FInfo
+    fInfo := &FunctionInfo { Package: p }
+    fCall := &FunctionCall { Node: fun }
+
+    // Populate FInfo and FCall so we can look things up
+    switch fd := fun.Fun.(type) {
+        case *ast.Ident:
+            fCall.Kind = InternalCall;
+
+            fInfo.Name = fd.Name;
+            fInfo.ResolvedPkg = p.ID;
+
+        case *ast.SelectorExpr:
+            sel, _ := fd.X.(*ast.Ident);
+            obj := p.TypesInfo.Uses[sel]
+
+            if _, isPkg := obj.(*types.PkgName); isPkg { // Then its a package call
+                fCall.Kind = PackageCall;
+
+                pkg_name := types.ExprString(fd.X)
+
+                fInfo.Name = fd.Sel.Name;
+                fInfo.ResolvedPkg = p.Imports[pkg_name];
+
+
+            } else { // Its an object call
+                fCall.Kind = ObjectCall;
+
+                selInfo := p.TypesInfo.Selections[fd]
+                obj := selInfo.Obj()
+
+                fInfo.Name = obj.Name()
+
+                recv := selInfo.Recv()
+                if p, ok := recv.(*types.Pointer); ok {
+                    recv = p.Elem()
+                }
+ 
+                if n, ok := recv.(*types.Named); ok {
+                    fInfo.Object = n.Obj().Name()
+                    if n.Obj().Pkg() != nil {
+                        fInfo.ResolvedPkg = n.Obj().Pkg().Path()
+                    }
+                } else {
+                    fInfo.Object = types.TypeString(recv, func(*types.Package) string { return "" })
+                }
+
+                if fInfo.ResolvedPkg == "" && obj.Pkg() != nil {
+                    fInfo.ResolvedPkg = obj.Pkg().Path()
+                }
+            }
+
+
+        case *ast.ArrayType: // Type cast
+            return nil
+
+        default:
+            log.Fatalf("failed to switch types on function %T: %v", fun.Fun, fun.Fun)
+    }
+
+    // Check if FInfo already exists. If it does, swap them out and use existing pointer
+    // Would do this first, but getting the object name takes so long, that I'd rather not do
+    //   it twice
+    possibleInfo, exists := FunctionMap[fInfo.FullName()]
+    if exists {
+        fInfo = possibleInfo
+    } else {
+        FunctionMap[fInfo.FullName()] = fInfo
+    }
+
+    fCall.Info = fInfo
+
+    return fCall
+}
+
+
+/**
+ * Summary: Removes cyclic graphs within the package's function declarations by recursively clipping function call cycles.
  *
- * @receiver p *PackageNode: Pointer to the package node containing function declarations.
- * @return error: Returns an error if cycle clipping fails in any function.
+ * Signature: func (p *PackageNode) ClipCyclicGraphs() error
+ *
+ * Parameters:
+ * - p: *PackageNode — the package node containing function declarations to process.
+ *
+ * Returns:
+ * - error — returns an error if cycle clipping fails for any function; otherwise, nil.
+ *
+ * Errors/Exceptions:
+ * - Returns an error with message "failed to clip function cycles" if an error occurs during cycle clipping of any function.
  */
 func (p *PackageNode) ClipCyclicGraphs() error {
     for _, decl := range p.FunctionDeclarations {
         callStack := []string{}
-        err := p.ClipFunctionCycles(decl, callStack)
+        err := p.ClipFunctionCycles(decl.Info, callStack)
         if err != nil {
             return fmt.Errorf("failed to clip function cycles: %v", err)
         }
@@ -413,72 +785,172 @@ func (p *PackageNode) ClipCyclicGraphs() error {
 // Empirical data will lmk if that's wrong.
 // Generally, programmers should avoid this pattern, unless its recursive, and my strat 
 //   works for the recursive case.
-func (p *PackageNode) ClipFunctionCycles(f *FunctionNode, callStack []string) error {
+func (p *PackageNode) ClipFunctionCycles(f *FunctionInfo, callStack []string) error {
+    if f.Declaration == nil {
+        return nil
+    }
+
     to_remove := []int{}
-    for i, call := range f.Calls {
+    for i, call := range f.Declaration.Calls {
         // Remove the repeated node from the calls array, but don't descend it.
         // If you descend it, all the nodes above it will be removed as well (since they've 
         //   already been included in the list)
         if slices.Contains(callStack, call.FullName()) {
             to_remove = append(to_remove, i)
         } else {
-            p.ClipFunctionCycles(call, append(callStack, f.FullName()))
+            p.ClipFunctionCycles(call.Info, append(callStack, f.FullName()))
         }
     }
 
     for i := len(to_remove) - 1 ; i >= 0 ; i-- {
-        f.Calls = append(f.Calls[:to_remove[i]], f.Calls[to_remove[i] + 1:]...)
+        f.Declaration.Calls = append(f.Declaration.Calls[:to_remove[i]], f.Declaration.Calls[to_remove[i] + 1:]...)
     }
 
     return nil
 }
 
 /**
- * FindStartEnd returns the start and end byte offsets of an AST node if it's a function declaration.
- * Use it to locate code positions within a source file.
+ * Finds the start and end positions of an AST node within the source file.
  *
  * Signature:
  * func (p *PackageNode) FindStartEnd(n ast.Node) (int, int)
  *
  * Parameters:
- * - n: ast.Node; the node to evaluate; expected to be a *ast.FuncDecl
+ * - n: ast.Node; the node whose positions are to be determined.
  *
  * Returns:
- * - start offset: int; position offset where the node begins
- * - end offset: int; position offset where the node ends
+ * - start: int; the file offset of the node's start position, or -1 if invalid.
+ * - end: int; the file offset of the node's end position, or -1 if invalid.
  *
  * Errors/Exceptions:
- * - Logs fatal error and terminates if the node is not a *ast.FuncDecl
+ * - Returns (-1, -1) if the node is nil or its position cannot be determined.
+ */
+
+/**
+ * Retrieves the start and end offsets of an AST node within the source file.
+ * Returns (-1, -1) if the node is nil or its position cannot be determined.
  *
- * Side Effects:
- * - Logs an error message on invalid node type
+ * Signature: (p *PackageNode) FindStartEnd(n ast.Node) (int, int)
  *
- * Edge Cases & Assumptions:
- * - Assumes the node is a function declaration; otherwise, the program terminates
+ * Parameters:
+ *   - n: ast.Node; the node to find offsets for. If nil, returns (-1, -1).
+ *
+ * Returns:
+ *   - start: int; the offset where the node begins.
+ *   - end: int; the offset where the node ends.
+ *
+ * Errors/Exceptions:
+ *   - Returns (-1, -1) if n is nil or if the file cannot be found.
  */
 func (p *PackageNode) FindStartEnd(n ast.Node) (int, int) {
-    if f, ok := n.(*ast.FuncDecl); ok {
-        return p.Fset.Position(f.Pos()).Offset, p.Fset.Position(f.End()).Offset
-    }
+	if n == nil {
+		return -1, -1
+	}
+	file := p.Fset.File(n.Pos())
+	if file == nil {
+		return -1, -1
+	}
+	// End() is the position *after* the node; safe for slicing [start:end].
+	start := file.Offset(n.Pos())
+	end := file.Offset(n.End())
+	return start, end
+}
 
-    log.Fatalf("tried to find start & end of unknown type")
-    return -1, -1
+// Finds the start and end positions of the AST node within the source file.
+// Signature:
+// func (p *PackageNode) FindStartEnd(n ast.Node) (int, int)
+// Parameters:
+// - n: ast.Node; the node whose positions are to be determined.
+// Returns:
+// - start: int; the file offset of the node's start position, or -1 if invalid.
+// - end: int; the file offset of the node's end position, or -1 if invalid.
+// Errors/Exceptions:
+// - Returns (-1, -1) if the node is nil or its position cannot be determined.
+func (f *FunctionDecl) FindStartEnd() (int, int) {
+    return f.Info.Package.FindStartEnd(f.Node)
 }
 
 /**
- * Updates documentation comments in the associated file for each function declaration in the PackageNode.
- * Skips functions that already have documentation comments.
- * Returns an error if a function declaration is not of type *ast.FuncDecl or if file update fails.
+ * Finds the start and end positions of the AST node within the source file.
+ *
+ * Signature:
+ *   func (p *PackageNode) FindStartEnd(n ast.Node) (int, int)
+ *
+ * Parameters:
+ *   - n: ast.Node; the node whose positions are to be determined.
+ *
+ * Returns:
+ *   - start: int; the file offset of the node's start position, or -1 if invalid.
+ *   - end: int; the file offset of the node's end position, or -1 if invalid.
+ *
+ * Errors/Exceptions:
+ *   - Returns (-1, -1) if the node is nil or its position cannot be determined.
+ */
+
+/**
+ * Retrieves the start and end offsets of an AST node within the source file.
+ * Returns (-1, -1) if the node is nil or its position cannot be determined.
+ *
+ * Signature:
+ *   (p *PackageNode) FindStartEnd(n ast.Node) (int, int)
+ *
+ * Parameters:
+ *   - n: ast.Node; the node to find offsets for. If nil, returns (-1, -1).
+ *
+ * Returns:
+ *   - start: int; the offset where the node begins.
+ *   - end: int; the offset where the node ends.
+ *
+ * Errors/Exceptions:
+ *   - Returns (-1, -1) if n is nil or if the file cannot be found.
+ */
+
+
+/*
+*
+ * Retrieves the start and end offsets of the FunctionCall's associated AST node within the source file.
+ * Returns (-1, -1) if the node is nil or if the position cannot be determined.
+ *
+ * Signature: (f *FunctionCall) FindStartEnd() (int, int)
+ *
+ * Parameters:
+ *   - f: *FunctionCall; the object containing the AST node and package information.
+ *
+ * Returns:
+ *   - start: int; the offset where the node begins.
+ *   - end: int; the offset where the node ends.
+ *
+ * Errors/Exceptions:
+ *   - Returns (-1, -1) if f.Node is nil or if the source position cannot be found.
+
+*/
+func (f *FunctionCall) FindStartEnd() (int, int) {
+    return f.Info.Package.FindStartEnd(f.Node)
+}
+
+
+/**
+ * Updates missing documentation comments for function declarations within the package node.
+ *
+ * Iterates through the package's function declarations in reverse order.
+ * For each function without existing documentation, it calculates the start position
+ * of the function's AST node and inserts the associated documentation string into the file at that position.
+ *
+ * Parameters:
+ *   - p: *PackageNode; the package node containing function declarations.
+ *
+ * Returns:
+ *   - error: nil if all updates succeed; otherwise, an error indicating failure.
+ *
+ * Errors/Exceptions:
+ *   - Returns an error if reading or writing a file fails, or if insertion position is invalid.
  */
 func (p *PackageNode) UpdateDocsInFile() error {
 
     for i := len(p.FunctionDeclarations) - 1; i >= 0; i-- {
         f := p.FunctionDeclarations[i]
 
-        fd, ok := f.Node.(*ast.FuncDecl)
-        if !ok {
-            return fmt.Errorf("p.FunctionDeclarations top level object not *ast.FuncDecl")
-        }
+        fd := f.Node
 
         // We read in pre-existing docs
         if fd.Doc != nil {
@@ -487,9 +959,9 @@ func (p *PackageNode) UpdateDocsInFile() error {
 
         start, _ := p.FindStartEnd(fd)
 
-        toAdd := fmt.Sprintf("%v\n", f.Documentation)
+        toAdd := fmt.Sprintf("%v\n", f.Info.Documentation)
 
-        err := insertIntoFile(f.File, start, toAdd)
+        err := insertIntoFile(f.Info.File, start, toAdd)
         if err != nil {
             return fmt.Errorf("failed to update docs in file: %v", err)
         }
@@ -502,17 +974,11 @@ func (p *PackageNode) UpdateDocsInFile() error {
 
 
 /**
- * GetFunctionInvocations traverses an AST node to find all function call expressions.
- * Use it to collect all function invocations within the given AST node.
+ * GetFunctionInvocations extracts all function call expressions from the provided AST node.
  *
- * func GetFunctionInvocations(f ast.Node) ([]*ast.CallExpr, error)
- *
- * @param f ast.Node - the root AST node to inspect.
- * 
- * @return slice of *ast.CallExpr - all call expressions found; empty if none.
- * @return error - always nil; provided for interface compatibility.
- *
- * No side effects or errors are thrown.
+ * @param f ast.Node: The AST node to inspect.
+ * @return funcs []*ast.CallExpr: Slice of all call expressions found.
+ *         error: Always nil.
  */
 func GetFunctionInvocations(f ast.Node) ([]*ast.CallExpr, error) {
     funcs := make([]*ast.CallExpr, 0, 10)
@@ -531,68 +997,20 @@ func GetFunctionInvocations(f ast.Node) ([]*ast.CallExpr, error) {
 
 
 /**
- * Converts an *ast.CallExpr to a *FunctionNode, extracting function name, object type, package path, and related info.
- * Use when transforming AST call expressions into a structured function node representation.
+ * Finds and returns the named type of the receiver in a method declaration.
  *
- * @param fun Pointer to ast.CallExpr representing the function call.
- * @param fset Pointer to token.FileSet, used for position info (not directly used here).
- * @param info Pointer to types.Info, containing type information for AST nodes.
- * @param file String representing the filename of the source code.
- * @return Pointer to FunctionNode with populated fields, or an error if conversion fails.
- */
-func ConvertToFunctionNode(fun *ast.CallExpr, fset *token.FileSet, info *types.Info, file string) (*FunctionNode, error) {
-    sel, ok := fun.Fun.(*ast.SelectorExpr)
-    if !ok {
-        return nil, fmt.Errorf("failed to parse object call: %v", fun)
-    }
-    
-    selInfo := info.Selections[sel]
-    recv := selInfo.Recv()
-    if p, ok := recv.(*types.Pointer); ok {
-        recv = p.Elem()
-    }
-
-    var typeName, pkgPath string
-    if n, ok := recv.(*types.Named); ok {
-    typeName = n.Obj().Name()
-    if n.Obj().Pkg() != nil {
-        pkgPath = n.Obj().Pkg().Path()
-    }
-    } else {
-        typeName = types.TypeString(recv, func(*types.Package) string { return "" })
-    }
-
-    obj := selInfo.Obj()
-    funcName := obj.Name()
-    if pkgPath == "" && obj.Pkg() != nil {
-        pkgPath = obj.Pkg().Path()
-    }
-
-    return &FunctionNode {
-        Name: funcName,
-        Object: typeName,
-        Package: pkgPath,
-        File: file,
-        Kind: ObjectCall,
-        Node: fun,
-    }, nil
-}
-
-
-/*
-func GetTypeDefinitionPositions(n *ast.TypeSpec, fset *token.FileSet) (int, int) {
-    return fset.Position(n.Pos()).Offset - 5, fset.Position(n.End()).Offset
-}
-*/
-
-
-/**
- * Extracts the named type associated with a receiver of a function declaration.
- * Returns the named type and true if found; otherwise, nil and false.
+ * This function inspects the method declaration `fd` and, if available, uses type
+ * information from `info` to determine the receiver's named type. It first attempts
+ * to extract the receiver type via the method's signature; if unsuccessful, it
+ * falls back to syntactic analysis and type info lookups.
  *
- * @param fd Pointer to ast.FuncDecl representing the function.
- * @param info Pointer to types.Info containing type information.
- * @return *types.Named and bool indicating if the receiver's type was identified.
+ * Parameters:
+ *   - fd: *ast.FuncDecl - the function declaration to analyze.
+ *   - info: *types.Info - type information for resolving identifiers.
+ *
+ * Returns:
+ *   - *types.Named: the receiver's named type if found; otherwise, nil.
+ *   - bool: true if the named type was successfully identified; false otherwise.
  */
 func MethodRecvNamed(fd *ast.FuncDecl, info *types.Info) (*types.Named, bool) {
 	if fd == nil || fd.Recv == nil || len(fd.Recv.List) == 0 {
@@ -650,12 +1068,31 @@ func MethodRecvNamed(fd *ast.FuncDecl, info *types.Info) (*types.Named, bool) {
 
 
 /**
-// ParsePackage loads and processes Go packages in the specified folder, returning a slice of PackageNode with populated information.
-// It uses the Go 'packages' package with a comprehensive configuration to load all relevant package data.
-// If loading fails, returns an error indicating the failure.
-// Iterates over loaded packages to initialize PackageNode instances, performs sanity checks, and populates package info.
-// Clips cyclic graphs within each PackageNode; returns error if clipping fails.
-// Returns a slice of fully processed PackageNode objects.
+Summary:
+Parses a Go package located in the specified folder, performing sanity checks, populating package information, and clipping cyclic function call graphs.
+
+Signature:
+func ParsePackage(foldername string) ([]PackageNode, error)
+
+Parameters:
+- foldername: string — the path to the package folder to parse.
+
+Returns:
+- []PackageNode: a slice of parsed PackageNode objects with populated function declarations, type definitions, and import mappings.
+- error: an error if package loading, sanity checking, populating information, or cycle clipping fails.
+
+Errors/Exceptions:
+- Returns an error if loading the package fails.
+- Returns an error if sanity checks or population of package information fail.
+- Returns an error if clipping cyclic graphs within function call graphs fails.
+
+Side Effects:
+- Loads package data and updates PackageNode fields.
+- Performs in-place cycle clipping on function call graphs.
+
+Edge Cases & Assumptions:
+- Assumes the specified folder contains a valid Go package.
+- The function handles errors from each processing step explicitly.
 */
 func ParsePackage(foldername string) ([]PackageNode, error) {
     cfg := &packages.Config{
@@ -677,23 +1114,29 @@ func ParsePackage(foldername string) ([]PackageNode, error) {
 
     pkgNodes := []PackageNode{}
 
+    log.Debugf("# packages seen: %v", len(pkgs))
+
     for _, pkg := range pkgs {
         pkgNode := PackageNode{
             Package: pkg,
-            FunctionDeclarations: []*FunctionNode{},
+            FunctionDeclarations: []*FunctionDecl{},
             TypeDefinitions:      []*ast.TypeSpec{},
             Imports:              make(map[string]string),
         }
 
-        pkgNode.SanityCheck()
-
-        pkgNode.PopulatePackageInformation()
-
-        /*
-        for _, value := range pkgNode.FunctionDeclarations {
-            log.Infof("%+v", value)
+        err := pkgNode.SanityCheck()
+        if err != nil {
+            return pkgNodes, fmt.Errorf("failed to sanity check: %v", err)
         }
-        */
+
+        log.Debugf("Sanity check passed for `%v`", pkgNode.Name)
+
+        err = pkgNode.PopulatePackageInformation()
+        if err != nil {
+            return pkgNodes, fmt.Errorf("failed to populate package information: %v", err)
+        }
+
+        log.Debugf("%v functions declared", len(pkgNode.FunctionDeclarations))
 
         pkgNodes = append(pkgNodes, pkgNode)
     }

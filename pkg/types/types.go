@@ -69,6 +69,3 @@ func GenerateShebangs(program SupportedFormat) []string {
     }
 }
 
-
-
-
