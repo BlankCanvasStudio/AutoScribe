@@ -61,11 +61,12 @@ func main() {
     if config.AstFileName != "" {
         if config.UndocumentAst {
             ast.UndocumentDir(config.AstFileName, true)
+            return
         }
 
         pkgNodes, err := ast.ParsePackage(config.AstFileName)
         if err != nil {
-            log.Fatalf("failed to parse package: %v", err)
+            log.Fatalf("Failed to parse package: %v", err)
         }
 
         for _, pkg := range pkgNodes {

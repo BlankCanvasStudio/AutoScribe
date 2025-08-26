@@ -70,32 +70,6 @@ Output format (omit irrelevant/trivial):
 %v
 --- END CODE ---`
 
-/*
-*
- * Summarizes the function's purpose: generates a string representation of a FunctionInfo, incorporating documentation comments from its calls.
- *
- * Signature:
- * func DocumentFunctions(f *FunctionInfo) error
- *
- * Parameters:
- *   - f: *FunctionInfo, the function information object to process.
- *
- * Returns:
- *   - error: an error if processing fails; otherwise, nil.
- *
- * Errors/Exceptions:
- *   - Returns an error if querying or formatting documentation fails.
- *
- * Side Effects:
- *   - May modify f.Documentation.
- *   - Sets f.Documented to true upon successful documentation.
- *
- * Edge Cases & Assumptions:
- *   - Assumes f.Declaration.Calls and related nodes are properly initialized.
- *   - Assumes f.FindStartEnd() and similar methods correctly set node boundaries.
- *   - Assumes external functions (calls.Query4_1Nano, formatting.FormatAsGoComment) handle their own errors.
-
-*/
 func DocumentFunctions(f *FunctionInfo) error {
 	// Consider how gpt aware gets loaded
 	if f.AiAware || f.Documented || f.WasDocumented {
@@ -144,23 +118,6 @@ func DocumentFunctions(f *FunctionInfo) error {
 	return nil
 }
 
-/*
-*
- * Inserts the given string into a file at the specified byte offset.
- *
- * @param path - the file path as a string.
- * @param offset - the position in the file where the insertion occurs; must be between 0 and the file's length.
- * @param insertion - the string to insert into the file.
- *
- * @returns an error if reading the file fails, the offset is invalid, or writing the modified data fails.
- *
- * @side Effects: modifies the file at the specified path by inserting the string.
- *
- * @edge Cases & Assumptions:
- * - If the offset is out of the valid range, the function returns an error.
- * - Operates synchronously.
-
-*/
 func insertIntoFile(path string, offset int, insertion string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
