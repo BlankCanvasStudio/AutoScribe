@@ -1,92 +1,107 @@
 # AutoScribe
 
-AutoScribe is a command-line tool designed to assist developers with code documentation generation and project scaffolding. It automates the creation of README files, help menus, and manages Abstract Syntax Tree (AST) documentation for Go projects, streamlining your development workflow.
+AutoScribe is an automation tool designed to analyze, document, and generate project artifacts such as README files and help menus. It leverages OpenAI's API to assist in code and documentation generation, providing a flexible command-line interface to customize its behavior.
 
 ## Features
-- Generate a comprehensive `README.md` for your project.
-- Create help menu implementation code and text.
-- Parse and document Go source files' AST, including updating doc comments.
-- Undocument directories or files based on AST structure.
+
+- Generate `README.md` files for projects
+- Create help menus and menu implementations
+- Document functions within a code package
+- Remove documentation comments from code
+- Display the Abstract Syntax Tree (AST) of files
+- Customize target file extensions and directories
+- Configure via YAML config files or environment variables
+- Add custom prompts for AI processing
 
 ## Dependencies
+
 - Go (version 1.16+ recommended)
-- [logrus](https://github.com/sirupsen/logrus) for logging
+- `gopkg.in/yaml.v3`
+- `github.com/sirupsen/logrus`
+- Supported file formats as specified in `pkg/types`
 
 ## Installation
 
 ### Prerequisites
-Ensure you have Go installed. You can download it from [golang.org](https://golang.org/dl/).
 
-### Clone the repository
+- Install Go from [https://golang.org/dl/](https://golang.org/dl/)
+
+### Building the Application
+
+Clone this repository and build the binary:
+
 ```bash
-git clone https://github.com/BlankCanvasStudio/AutoScribe.git
-cd AutoScribe
+git clone <repository_url>
+cd <repository_directory>
+go build -o autoscribe ./cmd/autoscribe
 ```
 
-### Build the project
-```bash
-go build -o autoscribe ./cmd
+*Note: Replace `<repository_url>` and `<repository_directory>` with the actual repository URL and directory.*
+
+### Configuration
+
+Create or edit the configuration file at `/etc/autoscribe/autoscribe.conf` with content similar to:
+
+```yaml
+OPENAI_API_KEY: your-openai-api-key
 ```
 
-The binary `autoscribe` will be created in your directory.
+Alternatively, set the environment variable:
+
+```bash
+export OPENAI_API_KEY=your-openai-api-key
+```
 
 ## Usage
 
-### Basic command
+### Basic Commands
+
 ```bash
-./autoscribe [flags]
+./autoscribe [options] [project_directory]
 ```
 
-### Configuration
-AutoScribe loads configuration from environment variables, configuration files, or CLI flags. Below are the available command-line flags:
+### Common Options
 
-| Flag                        | Description                                                      | Default                         |
-|------------------------------|------------------------------------------------------------------|---------------------------------|
-| `--make-readme`             | Generate `README.md` for the project.                             | false                           |
-| `--make-help-menu-impl`     | Generate help menu implementation code.                          | false                           |
-| `--make-help-menu-text`     | Generate help menu text.                                         | false                           |
-| `--ast-file`                | Path to the AST file or project directory to process.           | ""                              |
-| `--undocument-ast`          | Remove documentation from specified AST directory/file.         | false                           |
-| `--document-ast`            | Generate documentation from AST.                                  | false                           |
-| `--language-file-ext`       | File extension associated with the language (e.g., `.go`).     | `.go`                           |
-| `--project-dir`             | Path to the project directory for README and other files.       | Current directory (`./`)        |
+| Option | Description | Example |
+| --- | --- | --- |
+| `-r` | Generate a `README.md` for the project | `./autoscribe -r` |
+| `-m` | Create a help menu implementation | `./autoscribe -m` |
+| `-mt` | Write help menu text | `./autoscribe -mt` |
+| `-a` | Display the AST of a specific file | `./autoscribe -a src/main.go` |
+| `-d` | Set the project directory (default: `./`) | `./autoscribe -d ./myproject` |
+| `-o` | Output directory/file for generated artifacts | `./autoscribe -o ./output` |
+| `-e` | Specify a file to edit with new content | `./autoscribe -e src/main.go` |
+| `-l` | Target file extension (default: `sh`) | `./autoscribe -l py` |
+| `-debug` | Enable debug logging | `./autoscribe -debug` |
+| `-c` | Path to configuration file | `./autoscribe -c ./config.yml` |
+| `-p` | Additional instructions prompt | `./autoscribe -p "Write detailed docs"` |
+| `-docs` | Document functions within a package | `./autoscribe -docs` |
+| `-undocs` | Remove all comments from package | `./autoscribe -undocs` |
 
-### Example commands
+### Example Usage
 
-- Generate README and documentation for a Go project:
-  ```bash
-  ./autoscribe --make-readme --document-ast --ast-file ./myproject
-  ```
+Generate a README for a project in the current directory:
 
-- Remove documentation from a directory:
-  ```bash
-  ./autoscribe --undocument-ast --ast-file ./myproject
-  ```
+```bash
+./autoscribe -r
+```
 
-- Generate help menu:
-  ```bash
-  ./autoscribe --make-help-menu-text
-  ```
+Display the AST of a specific file:
 
-## Configuration
+```bash
+./autoscribe -a src/utils.go
+```
 
-- The tool automatically loads configuration settings, which can also be overridden via CLI flags.
-- Environment variables can be used to set configurations (`AUTO_DIR`, `AUTO_EXT`, etc.).
+Create a help menu implementation:
 
-## Architecture
+```bash
+./autoscribe -m
+```
 
-- **Main Orchestrator**: Parses configuration, CLI args, and routes tasks accordingly.
-- **AST Processing**: Parses Go package files, updates documentation or removes it.
-- **Documentation Generation**: Creates README files, help menu code, and help menu text via the `calls` package.
+## Architecture & Code Structure
 
-## Notes
-- Make sure the `AstFileName` points to the correct source files or directories.
-- The tool is designed to work primarily with Go source files with `.go` extensions.
-- Error handling is verbose; review logs for troubleshooting.
+This project is built using Go modules, with core configuration logic in `pkg/config/load.go`. The main command-line interface parses arguments and invokes appropriate functionalities, which interact with OpenAI's API for code analysis and generation.
 
 ## License
-This project is licensed under the MIT License.
 
----
-
-*For more details, refer to the source code or visit the project's repository.*
+This project is licensed under the MIT License. See `LICENSE` for more details.
