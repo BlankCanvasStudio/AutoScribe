@@ -1,38 +1,37 @@
 package calls
 
 import (
-    // "os"
-    "fmt"
-    "context"
+	// "os"
+	"context"
+	"fmt"
 
-    "github.com/openai/openai-go/v2"
-    "github.com/openai/openai-go/v2/option"
-    // "github.com/openai/openai-go/v2/shared"
+	"github.com/openai/openai-go/v2"
+	"github.com/openai/openai-go/v2/option"
+	// "github.com/openai/openai-go/v2/shared"
 
-    "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
+	"github.com/BlankCanvasStudio/AutoScribe/pkg/config"
 )
 
 func Query4_1Nano(msg string) (string, error) {
-    // Load API key
-    client := openai.NewClient(
-        option.WithAPIKey(config.OpenAIKey),
-    )
+	// Load API key
+	client := openai.NewClient(
+		option.WithAPIKey(config.OpenAIKey),
+	)
 
-    if config.AdditionalPrompt != "" {
-        msg += fmt.Sprintf("\n-----------------------\nAdditionally:\n%v\n", config.AdditionalPrompt)
-    }
+	if config.AdditionalPrompt != "" {
+		msg += fmt.Sprintf("\n-----------------------\nAdditionally:\n%v\n", config.AdditionalPrompt)
+	}
 
-    chatCompletion, err := client.Chat.Completions.New(context.TODO(), openai.ChatCompletionNewParams{
-        Messages: []openai.ChatCompletionMessageParamUnion{
-            openai.UserMessage(msg),
-        },
-        Model: openai.ChatModelGPT4_1Nano,
-    })
+	chatCompletion, err := client.Chat.Completions.New(context.TODO(), openai.ChatCompletionNewParams{
+		Messages: []openai.ChatCompletionMessageParamUnion{
+			openai.UserMessage(msg),
+		},
+		Model: openai.ChatModelGPT4_1Nano,
+	})
 
-    if err != nil {
-        return "", fmt.Errorf("failed to query 4.1 nano : %v", err)
-    }
+	if err != nil {
+		return "", fmt.Errorf("failed to query 4.1 nano : %v", err)
+	}
 
-    return chatCompletion.Choices[0].Message.Content, nil
+	return chatCompletion.Choices[0].Message.Content, nil
 }
-

@@ -1,35 +1,31 @@
 package calls
 
 import (
-    "os"
-    "fmt"
+	"fmt"
+	"os"
 
-    log "github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
-    "github.com/BlankCanvasStudio/AutoScribe/pkg/files"
-    "github.com/BlankCanvasStudio/AutoScribe/pkg/types"
-    "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
+	"github.com/BlankCanvasStudio/AutoScribe/pkg/config"
+	"github.com/BlankCanvasStudio/AutoScribe/pkg/files"
+	"github.com/BlankCanvasStudio/AutoScribe/pkg/types"
 )
 
-
-// Maybe this is bytes
-// func CreateHelpMenuImplementation(data types.ConcatenatedFileContents, fileFormat types.SupportedFormat) (string, error) {
 func CreateHelpMenuImplementation(fileFormat types.SupportedFormat) (string, error) {
-    log.Debugf("Input file for CreateHelpMenuImplementation: %v", config.EditFile)
+	log.Debugf("Input file for CreateHelpMenuImplementation: %v", config.EditFile)
 
-    if config.EditFile == "" {
-        return CreateHelpMenuImplementationSample(fileFormat)
-    }
+	if config.EditFile == "" {
+		return CreateHelpMenuImplementationSample(fileFormat)
+	}
 
-    return CreateHelpMenuAndUpdateImplementation(fileFormat)
+	return CreateHelpMenuAndUpdateImplementation(fileFormat)
 }
 
-
 func CreateHelpMenuAndUpdateImplementation(fileFormat types.SupportedFormat) (string, error) {
-    data, err := files.FormatCodeFilesForContext()
+	data, err := files.FormatCodeFilesForContext()
 
-    helpmenuPrompt := fmt.Sprintf(
-`Your task is to:
+	helpmenuPrompt := fmt.Sprintf(
+		`Your task is to:
 1. Read all files and understand their purpose and functionality.
 2. Based on their contents, generate a **help menu implementation** (i.e. code that, when run, will print a help/usage menu) using the same programming language and packages used in the provided files.
 3. Return an updated version of %v with the help menu implemented. Make sure all the original functionality is still implemented
@@ -49,23 +45,22 @@ Here are the files:
 
 %v`, config.EditFile, data)
 
-    log.Info("Querying ai for output...")
-    helpmenuText, err := Query4_1Nano(helpmenuPrompt)
-    if err != nil {
-        return "", fmt.Errorf("failed to query 4.1 Nano: %v", err)
-    }
+	log.Info("Querying ai for output...")
+	helpmenuText, err := Query4_1Nano(helpmenuPrompt)
+	if err != nil {
+		return "", fmt.Errorf("failed to query 4.1 Nano: %v", err)
+	}
 
-    os.WriteFile(config.EditFile, []byte(helpmenuText), 0644)
+	os.WriteFile(config.EditFile, []byte(helpmenuText), 0644)
 
-    return helpmenuText, nil
+	return helpmenuText, nil
 }
 
-
 func CreateHelpMenuImplementationSample(fileFormat types.SupportedFormat) (string, error) {
-    data, err := files.FormatCodeFilesForContext()
+	data, err := files.FormatCodeFilesForContext()
 
-    helpmenuPrompt := fmt.Sprintf(
-`Your task is to:
+	helpmenuPrompt := fmt.Sprintf(
+		`Your task is to:
 1. Read all files and understand their purpose and functionality.
 2. Based on their contents, generate a **help menu implementation** (i.e. code that, when run, will print a help/usage menu) using the same programming language and packages used in the provided files.
 
@@ -79,25 +74,24 @@ Here are the files:
 
 %v`, data)
 
-    log.Info("Querying ai for output...")
-    helpmenuText, err := Query4_1Nano(helpmenuPrompt)
-    if err != nil {
-        return "", fmt.Errorf("failed to query 4.1 Nano: %v", err)
-    }
+	log.Info("Querying ai for output...")
+	helpmenuText, err := Query4_1Nano(helpmenuPrompt)
+	if err != nil {
+		return "", fmt.Errorf("failed to query 4.1 Nano: %v", err)
+	}
 
-    // ReadmePath := fmt.Sprintf("%v/README.md", config.OutputDirectory)
+	// ReadmePath := fmt.Sprintf("%v/README.md", config.OutputDirectory)
 
-    // os.WriteFile(helpmenuText, []byte(readmeText), 0644)
+	// os.WriteFile(helpmenuText, []byte(readmeText), 0644)
 
-    return helpmenuText, nil
+	return helpmenuText, nil
 }
 
-// func CreateHelpMenuText(data types.ConcatenatedFileContents, fileFormat types.SupportedFormat) (string, error) {
 func CreateHelpMenuText(fileFormat types.SupportedFormat) (string, error) {
-    data, err := files.FormatCodeFilesForContext()
+	data, err := files.FormatCodeFilesForContext()
 
-    helpmenuPrompt := fmt.Sprintf(
-`Your task is to:
+	helpmenuPrompt := fmt.Sprintf(
+		`Your task is to:
 1. Read all files and understand their purpose and functionality.
 2. Based on their contents, generate only the **help menu text output** (as if the user ran the program with '--help'), summarizing commands, flags, functions, and configuration options derived from the files.
 3. Do *not* generate implementation code — only the help text a user would see.
@@ -111,16 +105,13 @@ Here are the files:
 
 %v`, data)
 
+	log.Info("Querying ai for output...")
+	helpmenuText, err := Query4_1Nano(helpmenuPrompt)
+	if err != nil {
+		return "", fmt.Errorf("failed to query 4.1 Nano: %v", err)
+	}
 
+	// os.WriteFile(helpmenuText, []byte(readmeText), 0644)
 
-    log.Info("Querying ai for output...")
-    helpmenuText, err := Query4_1Nano(helpmenuPrompt)
-    if err != nil {
-        return "", fmt.Errorf("failed to query 4.1 Nano: %v", err)
-    }
-
-    // os.WriteFile(helpmenuText, []byte(readmeText), 0644)
-
-    return helpmenuText, nil
+	return helpmenuText, nil
 }
-
