@@ -46,6 +46,28 @@ func CombineFilesForContext(files []string) (types.ConcatenatedFileContents, err
 }
 
 
+/*
+*
+ * Summary: Recursively searches the project directory for files matching the configured language file extension and concatenates their contents for context.
+ *
+ * Signature: func FormatCodeFilesForContext() (types.ConcatenatedFileContents, error)
+ *
+ * Returns:
+ * - types.ConcatenatedFileContents: concatenated contents of the filtered code files.
+ * - error: error encountered during filtering or file reading.
+ *
+ * Errors/Exceptions:
+ * - Returns an error if filtering for code files fails.
+ * - Returns an error if reading any file fails.
+ *
+ * Side Effects:
+ * - Reads files from the filesystem.
+ *
+ * Edge Cases & Assumptions:
+ * - Skips ".git" directories.
+ * - Only includes files that pass the language extension check.
+
+*/
 func FormatCodeFilesForContext() (types.ConcatenatedFileContents, error) {
 	files, err := FilterForCodeFiles(config.ProjectDirectory)
 	if err != nil {

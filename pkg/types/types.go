@@ -42,6 +42,20 @@ func IsSupportedFormat(val string) bool {
 }
 
 
+/*
+*
+ * Summary: Checks whether the file at the given path matches the supported format, based on extension or shebang line. Use this for verifying if a file conforms to a specified SupportedFormat.
+ * Signature: func (f SupportedFormat) FileIsThisFormat(path string) (string, bool)
+ * Parameters:
+ *   - path: string, the file system path to the file to be checked.
+ * Returns:
+ *   - string: the file extension (without leading '.') if matched, or an empty string if not.
+ *   - bool: true if the file matches the format; false otherwise.
+ * Errors/Exceptions: Returns false if there's an error reading the file head or if shebang verification fails.
+ * Side Effects: Opens the file for reading when extension is absent.
+ * Edge Cases & Assumptions: Assumes file exists and is readable when no extension is present; ignores errors during file opening.
+
+*/
 func (f SupportedFormat) FileIsThisFormat(path string) (string, bool) {
 	ext := filepath.Ext(path)
 

@@ -12,6 +12,25 @@ import (
 )
 
 
+/*
+*
+ * Summary: Generates a help menu implementation code snippet based on the contents of code files formatted for context, and provides an example of how to integrate it into the existing codebase.
+ * Signature: func CreateHelpMenuImplementationSample(fileFormat types.SupportedFormat) (string, error)
+ * Parameters:
+ * - fileFormat: types.SupportedFormat — The format of the supported files (currently unused in implementation).
+ * Returns:
+ * - string: The generated help menu implementation code.
+ * - error: Error encountered during processing, if any.
+ * Errors/Exceptions:
+ * - Returns an error if the file formatting or API query fails.
+ * Side Effects:
+ * - Reads and processes code files for context.
+ * - Performs an API call to generate help menu code.
+ * Edge Cases & Assumptions:
+ * - Assumes file formatting and API responses are successful.
+ * - The `data` variable correctly contains formatted code files for context.
+
+*/
 func CreateHelpMenuImplementation(fileFormat types.SupportedFormat) (string, error) {
 	log.Debugf("Input file for CreateHelpMenuImplementation: %v", config.EditFile)
 

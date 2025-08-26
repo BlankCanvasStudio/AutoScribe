@@ -1,96 +1,92 @@
 # AutoScribe
 
-AutoScribe is a command-line tool designed to facilitate automatic documentation generation and management for Go projects. It can generate comprehensive README files, produce help menu implementations or texts, and parse or undocument Abstract Syntax Trees (ASTs) within your codebase. By integrating with your code, AutoScribe streamlines documentation workflows and enhances project clarity.
+AutoScribe is a command-line tool designed to assist developers with code documentation generation and project scaffolding. It automates the creation of README files, help menus, and manages Abstract Syntax Tree (AST) documentation for Go projects, streamlining your development workflow.
 
 ## Features
-
-- Generate README.md based on project files
-- Create help menu implementations or plain text
-- Parse AST files for documentation or undocumentation
-- Document functions within parsed packages
-- Update documentation directly within source files
-
-## Prerequisites
-
-- Go 1.16 or higher
-- Modules dependencies specified below
+- Generate a comprehensive `README.md` for your project.
+- Create help menu implementation code and text.
+- Parse and document Go source files' AST, including updating doc comments.
+- Undocument directories or files based on AST structure.
 
 ## Dependencies
-
-The project uses the following Go modules:
-
-- `github.com/sirupsen/logrus` for logging
-
-Make sure to initialize your environment with all dependencies:
-
-```bash
-go mod tidy
-```
+- Go (version 1.16+ recommended)
+- [logrus](https://github.com/sirupsen/logrus) for logging
 
 ## Installation
 
-Clone the repository and build the binary:
+### Prerequisites
+Ensure you have Go installed. You can download it from [golang.org](https://golang.org/dl/).
 
+### Clone the repository
 ```bash
-git clone <repository-url>
-cd <repository-directory>
+git clone https://github.com/BlankCanvasStudio/AutoScribe.git
+cd AutoScribe
+```
+
+### Build the project
+```bash
 go build -o autoscribe ./cmd
 ```
 
-This will produce an executable named `autoscribe`.
+The binary `autoscribe` will be created in your directory.
 
 ## Usage
 
+### Basic command
 ```bash
 ./autoscribe [flags]
 ```
 
-### Configuration Flags
+### Configuration
+AutoScribe loads configuration from environment variables, configuration files, or CLI flags. Below are the available command-line flags:
 
-- `--make-readme`  
-  Generate a `README.md` file for the project.
+| Flag                        | Description                                                      | Default                         |
+|------------------------------|------------------------------------------------------------------|---------------------------------|
+| `--make-readme`             | Generate `README.md` for the project.                             | false                           |
+| `--make-help-menu-impl`     | Generate help menu implementation code.                          | false                           |
+| `--make-help-menu-text`     | Generate help menu text.                                         | false                           |
+| `--ast-file`                | Path to the AST file or project directory to process.           | ""                              |
+| `--undocument-ast`          | Remove documentation from specified AST directory/file.         | false                           |
+| `--document-ast`            | Generate documentation from AST.                                  | false                           |
+| `--language-file-ext`       | File extension associated with the language (e.g., `.go`).     | `.go`                           |
+| `--project-dir`             | Path to the project directory for README and other files.       | Current directory (`./`)        |
 
-- `--make-help-menu-impl`  
-  Create a Help Menu implementation file.
+### Example commands
 
-- `--make-help-menu-text`  
-  Generate a plain text version of the Help Menu.
+- Generate README and documentation for a Go project:
+  ```bash
+  ./autoscribe --make-readme --document-ast --ast-file ./myproject
+  ```
 
-- `--ast-file-name <path>`  
-  Specify the AST file to parse or modify.
+- Remove documentation from a directory:
+  ```bash
+  ./autoscribe --undocument-ast --ast-file ./myproject
+  ```
 
-- `--undocument-ast`  
-  Remove documentation from the specified AST files.
+- Generate help menu:
+  ```bash
+  ./autoscribe --make-help-menu-text
+  ```
 
-- `--document-ast`  
-  Document functions within the AST files.
+## Configuration
 
-### Example
+- The tool automatically loads configuration settings, which can also be overridden via CLI flags.
+- Environment variables can be used to set configurations (`AUTO_DIR`, `AUTO_EXT`, etc.).
 
-Generate README and document AST:
+## Architecture
 
-```bash
-./autoscribe --make-readme --ast-file-name path/to/ast.go --document-ast
-```
+- **Main Orchestrator**: Parses configuration, CLI args, and routes tasks accordingly.
+- **AST Processing**: Parses Go package files, updates documentation or removes it.
+- **Documentation Generation**: Creates README files, help menu code, and help menu text via the `calls` package.
 
-Generate Help Menu implementation:
-
-```bash
-./autoscribe --make-help-menu-impl
-```
-
-## Architecture & Data Flow
-
-- Loads configuration from files and environment variables.
-- Parses CLI arguments to determine actions.
-- Based on flags, generates documentation resources or processes AST files.
-- Can document or remove documentation from code, updating source files directly.
-- Utilizes internal packages for AST parsing (`pkg/ast`), configuration management (`pkg/config`), and OpenAI interactions (`pkg/openai/calls`).
-
-## Contributing
-
-Contributions are welcome! Please fork the repository and submit pull requests.
+## Notes
+- Make sure the `AstFileName` points to the correct source files or directories.
+- The tool is designed to work primarily with Go source files with `.go` extensions.
+- Error handling is verbose; review logs for troubleshooting.
 
 ## License
-
 This project is licensed under the MIT License.
+
+---
+
+*For more details, refer to the source code or visit the project's repository.*

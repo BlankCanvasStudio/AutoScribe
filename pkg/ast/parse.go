@@ -188,16 +188,18 @@ func (f *FunctionDecl) ToStringForGPT() (string, error) {
 	fd_text := string(raw)[fd_start:fd_end]
 
 	for i := len(f.Calls) - 1; i >= 0; i-- {
+                fc_line_no := f.Calls[i].FindLineNo()
 		fc_start, fc_end := f.Calls[i].FindStartEnd()
 
 		fc_start -= fd_start
 		fc_end -= fd_start
+                fc_line_no -= fd_start
 
 		docs := f.Calls[i].Info.Documentation
 		if strings.TrimSpace(docs) == "" {
 			continue
 		}
-		fd_text = fd_text[:fc_start] + " /* " + strings.ReplaceAll(docs, "\n", "|") + " */ " + fd_text[fc_start:]
+		fd_text = fd_text[:fc_line_no] + " /* " + docs + " */\n " + fd_text[fc_line_no:]
 	}
 
 	return fd_text, nil
@@ -733,11 +735,38 @@ func (p *PackageNode) FindStartEnd(n ast.Node) (int, int) {
 }
 
 
+/*
+*
+ * FindLineNo returns the offset in the source file where the given AST node starts.
+ * Use it to determine the position of a node within the source code.
+ *
+ * Signature:
+ * func (p *PackageNode) FindLineNo(n ast.Node) int
+ *
+ * Parameters:
+ * - n: ast.Node, the node for which to find the starting offset; if nil, returns -1.
+ *
+ * Returns:
+ * - int: the offset of the start of the node within the source file.
+
+*/
 func (p *PackageNode) FindLineNo(n ast.Node) (int) {
 	if n == nil {
 		return -1
 	}
-	return p.Fset.Position(n.Pos()).Line
+        startPos := p.Fset.Position(n.Pos())
+        // get the File for this position
+        file := p.Fset.File(n.Pos())
+
+        // find offset of the start of the line
+        lineStart := file.LineStart(startPos.Line)
+
+        // convert to absolute offset
+        lineOffset := p.Fset.Position(lineStart).Offset
+
+        return lineOffset
+
+        // return fset.File(n.Pop.Fset.Position(n.Pos()).Line
 }
 
 /*
@@ -765,6 +794,34 @@ func (f *FunctionDecl) FindStartEnd() (int, int) {
 	return f.Info.Package.FindStartEnd(f.Node)
 }
 
+
+/*
+*
+ * Summary: Returns the absolute offset of the start of the line containing the given AST node within the file, or -1 if the node is nil.
+ *
+ * Signature: func (f *FunctionDecl) FindLineNo() int
+ *
+ * Parameters:
+ * - None
+ *
+ * Returns:
+ * - int; the absolute offset position of the line start in the file.
+ *
+ * Errors/Exceptions:
+ * - None explicitly; returns -1 when the node is nil.
+ *
+ * Side Effects:
+ * - Reads from the associated token file set and file.
+ *
+ * Edge Cases & Assumptions:
+ * - Assumes f.Node.Pos() provides a valid position within the file set.
+ * - If f is nil or its position is invalid, behavior depends on underlying implementation.
+
+*/
+func (f *FunctionDecl) FindLineNo() (int) {
+	return f.Info.Package.FindLineNo(f.Node)
+}
+
 /*
 *
  * Finds the start and end offsets of an AST node within the source file.
@@ -787,6 +844,28 @@ func (f *FunctionDecl) FindStartEnd() (int, int) {
 */
 func (f *FunctionCall) FindStartEnd() (int, int) {
 	return f.Info.Package.FindStartEnd(f.Node)
+}
+
+
+/*
+*
+ * Summary: Returns the absolute offset of the start of the line containing the given AST node within the file, or -1 if the node is nil.
+ * Signature: func (f *FunctionCall) FindLineNo() int
+ * Parameters:
+ * - f: *FunctionCall; the function call instance containing the node and info.
+ * Returns:
+ * - int; the absolute offset position of the line start in the file.
+ * Errors/Exceptions:
+ * - None explicitly; returns -1 when f.Node is nil.
+ * Side Effects:
+ * - Reads from the associated token file set and file.
+ * Edge Cases & Assumptions:
+ * - Assumes f.Node.Pos() provides a valid position within the file set.
+ * - If f.Node is nil, returns -1.
+
+*/
+func (f *FunctionCall) FindLineNo() (int) {
+	return f.Info.Package.FindLineNo(f.Node)
 }
 
 /*
@@ -945,32 +1024,28 @@ func MethodRecvNamed(fd *ast.FuncDecl, info *types.Info) (*types.Named, bool) {
 
 /*
 *
- * Summary:
- * Parses the specified folder to load Go packages, verifies their integrity,
- * populates package information (including function declarations, type definitions, and imports),
- * and removes cyclic function call graphs to prevent infinite recursion.
+ * Summary: Parses the specified folder to identify Go packages, validate their syntax, populate package information, and remove cyclic function call graphs.
  *
- * Signature:
- * func ParsePackage(foldername string) ([]PackageNode, error)
+ * Signature: func ParsePackage(foldername string) ([]PackageNode, error)
  *
  * Parameters:
- * - foldername: string; the path to the root directory containing Go source files.
+ * - foldername: string; the root directory to scan for Go source files and packages.
  *
  * Returns:
- * - []PackageNode: a list of populated PackageNode structures representing the packages found.
- * - error: non-nil if an error occurs during directory traversal, package loading, or processing.
+ * - []PackageNode: list of package nodes representing parsed packages with populated info.
+ * - error: non-nil if an error occurs during directory scanning, package loading, validation, or cyclic graph clipping.
  *
  * Errors/Exceptions:
- * - Returns an error if walking directories, loading packages, validating, populating, or clipping cyclic graphs fails.
+ * - Returns an error if directory traversal, package loading, validation, or cyclic graph clipping fails.
  *
  * Side Effects:
- * - Performs directory traversal, package loading, and modifies PackageNode data structures.
+ * - Performs directory traversal and package processing.
+ * - Modifies PackageNode objects during validation, population, and cyclic graph clipping.
  *
  * Edge Cases & Assumptions:
- * - Assumes GetNestedFoldersWithGoFiles successfully returns relevant folder paths.
- * - Assumes packages.Load correctly loads package information from given folders.
- * - Assumes each PackageNode's SanityCheck and PopulatePackageInformation methods properly validate and populate data.
- * - Assumes cycle clipping is necessary to prevent infinite recursion in function call graphs.
+ * - Assumes folder contains valid Go source files and packages.
+ * - Assumes GetNestedFoldersWithGoFiles handles directory traversal errors.
+ * - Assumes PackageNode.SanityCheck, PopulatePackageInformation, and ClipCyclicGraphs modify internal state accordingly.
 
 */
 func ParsePackage(foldername string) ([]PackageNode, error) {
