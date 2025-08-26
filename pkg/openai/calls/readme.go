@@ -56,6 +56,8 @@ Here are the project files:
 
 %v`, data)
 
+        log.Debugf("GPT Query:\n\n%v\n", readmePrompt)
+
 	log.Infof("Outputting to file: %v", config.EditFile)
 	log.Info("Querying ai for output...")
 	readmeText, err := Query4_1Nano(readmePrompt)

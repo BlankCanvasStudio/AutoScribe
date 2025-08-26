@@ -1,141 +1,96 @@
-# Project Name
+# AutoScribe
 
-A concise description of the project’s purpose and functionality.
+AutoScribe is a command-line tool designed to facilitate automatic documentation generation and management for Go projects. It can generate comprehensive README files, produce help menu implementations or texts, and parse or undocument Abstract Syntax Trees (ASTs) within your codebase. By integrating with your code, AutoScribe streamlines documentation workflows and enhances project clarity.
 
----
+## Features
 
-## Description
+- Generate README.md based on project files
+- Create help menu implementations or plain text
+- Parse AST files for documentation or undocumentation
+- Document functions within parsed packages
+- Update documentation directly within source files
 
-This project is designed to [briefly describe what the project does, e.g., "process data, serve a web application, analyze images, etc."]. It leverages [mention any key technologies, libraries, or dependencies], ensuring efficient and reliable performance.
+## Prerequisites
 
----
+- Go 1.16 or higher
+- Modules dependencies specified below
 
 ## Dependencies
 
-- [Dependency 1] (e.g., Python 3.8+)
-- [Dependency 2] (e.g., Flask, NumPy)
-- [Build tool if applicable] (e.g., Make, gcc)
+The project uses the following Go modules:
 
-Make sure these dependencies are installed before proceeding.
+- `github.com/sirupsen/logrus` for logging
 
----
+Make sure to initialize your environment with all dependencies:
+
+```bash
+go mod tidy
+```
 
 ## Installation
 
-### Clone the repository
+Clone the repository and build the binary:
 
 ```bash
-git clone https://github.com/yourusername/yourproject.git
-cd yourproject
+git clone <repository-url>
+cd <repository-directory>
+go build -o autoscribe ./cmd
 ```
 
-### Build the project
-
-If a `Makefile` is present, use:
-
-```bash
-make
-```
-
-This will compile or prepare the project as necessary.
-
-### (Optional) Install dependencies
-
-For Python projects, install required packages:
-
-```bash
-pip install -r requirements.txt
-```
-
-Ensure all dependencies are installed before running the application.
-
----
-
-## Configuration
-
-Configure the project by editing the relevant configuration files or environment variables as needed.
-
-For example: 
-
-- Copy sample configuration:
-
-```bash
-cp config.example.yaml config.yaml
-```
-
-- Edit `config.yaml` to set parameters such as `[list key configurations, e.g., port, database URL, etc.]`.
-
----
+This will produce an executable named `autoscribe`.
 
 ## Usage
 
-### Running the Application
-
-Use the command:
-
 ```bash
-./yourproject [options]
+./autoscribe [flags]
 ```
 
-### Command line options
+### Configuration Flags
 
-| Option | Description | Default | Example |
-| -------- | -------- | -------- | -------- |
-| `-h`, `--help` | Show help message | — | `./yourproject --help` |
-| `-p`, `--port` | Specify port to run on | 8080 | `./yourproject --port 8000` |
-| `-c`, `--config` | Path to configuration file | `config.yaml` | `./yourproject --config ./custom_config.yaml` |
+- `--make-readme`  
+  Generate a `README.md` file for the project.
+
+- `--make-help-menu-impl`  
+  Create a Help Menu implementation file.
+
+- `--make-help-menu-text`  
+  Generate a plain text version of the Help Menu.
+
+- `--ast-file-name <path>`  
+  Specify the AST file to parse or modify.
+
+- `--undocument-ast`  
+  Remove documentation from the specified AST files.
+
+- `--document-ast`  
+  Document functions within the AST files.
 
 ### Example
 
-Start the server on port 9000 with a specific configuration:
+Generate README and document AST:
 
 ```bash
-./yourproject --port 9000 --config settings.yaml
+./autoscribe --make-readme --ast-file-name path/to/ast.go --document-ast
 ```
 
----
-
-## Architecture & Implementation Details
-
-- The project is structured with the following directories:
-  - `src/` — source code
-  - `tests/` — test cases
-  - `config/` — configuration files
-  
-- Core components include:
-  - [`Component A`] for handling [functionality]
-  - [`Component B`] for processing [task]
-  
-- The system uses [architecture pattern, e.g., MVC, Microservices, Modular] for maintainability and scalability.
-
----
-
-## Testing
-
-To run tests:
+Generate Help Menu implementation:
 
 ```bash
-make test
+./autoscribe --make-help-menu-impl
 ```
 
-Or, if tests are configured within a Python environment:
+## Architecture & Data Flow
 
-```bash
-pytest
-```
+- Loads configuration from files and environment variables.
+- Parses CLI arguments to determine actions.
+- Based on flags, generates documentation resources or processes AST files.
+- Can document or remove documentation from code, updating source files directly.
+- Utilizes internal packages for AST parsing (`pkg/ast`), configuration management (`pkg/config`), and OpenAI interactions (`pkg/openai/calls`).
 
----
+## Contributing
+
+Contributions are welcome! Please fork the repository and submit pull requests.
 
 ## License
 
-This project is licensed under the [Your License Name] — see the [LICENSE](LICENSE) file for details.
-
----
-
-## Contact
-
-For questions, open an issue or contact [Your Name] at [your.email@example.com].
-
----
-
-*Note: Adjust placeholder text, project name, dependencies, configurations, and commands to match your actual project details.*
+This project is licensed under the MIT License.
