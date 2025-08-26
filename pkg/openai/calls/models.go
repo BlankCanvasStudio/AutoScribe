@@ -12,6 +12,37 @@ import (
 	"github.com/BlankCanvasStudio/AutoScribe/pkg/config"
 )
 
+/*
+*
+ * Executes a chat completion request to the OpenAI API using the GPT-4.1 Nano model.
+ *
+ * Summary:
+ * Sends a message to the OpenAI GPT-4.1 Nano model, optionally appending an additional prompt,
+ * and returns the generated response content.
+ *
+ * Signature:
+ * func Query4_1Nano(msg string) (string, error)
+ *
+ * Parameters:
+ * - msg (string): The user message to send to the model.
+ *
+ * Returns:
+ * - string: The content of the first choice's message from the model's response.
+ * - error: An error if the request fails.
+ *
+ * Errors/Exceptions:
+ * - Returns an error if the API request fails.
+ *
+ * Side Effects:
+ * - Creates an API client.
+ * - Sends a request over the network.
+ *
+ * Edge Cases & Assumptions:
+ * - Assumes `config.OpenAIKey` is a valid API key.
+ * - Appends `config.AdditionalPrompt` if it's not empty.
+ * - Uses context.TODO() for request context.
+
+*/
 func Query4_1Nano(msg string) (string, error) {
 	// Load API key
 	client := openai.NewClient(

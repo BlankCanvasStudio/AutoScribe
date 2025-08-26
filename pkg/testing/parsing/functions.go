@@ -24,6 +24,23 @@ import (
 type Testing struct {
 }
 
+/*
+*
+ * Run executes the testing process with the specified input string.
+ *
+ * Parameters:
+ *   p - string: the input to be processed during testing.
+ *
+ * Returns:
+ *   error: nil if the process completes successfully; otherwise, an error.
+ *
+ * Side Effects:
+ *   Logs the input string at info level.
+Commnet #1
+Comment #2
+And its multi-line
+
+*/
 func (t Testing) Run(p string) error {
 	// Commnet #1
 	log.Infof("input: %s", p)
@@ -34,6 +51,33 @@ func (t Testing) Run(p string) error {
 
 type Testing2 string
 
+/*
+*
+ * Parses the specified Go source file, extracts function definitions, and logs their names.
+ * Initializes an OpenAI client with the provided API key.
+ * Executes a test run with a hardcoded input string.
+ *
+ * Signature:
+ * func ParseFile(filename string) error
+ *
+ * Parameters:
+ * - filename: string, the path to the Go source file to parse.
+ *
+ * Returns:
+ * - error: nil if parsing and processing succeed; otherwise, an error describing the failure.
+ *
+ * Errors/Exceptions:
+ * - Returns an error if file parsing or function extraction fails.
+ *
+ * Side Effects:
+ * - Logs function names and client information.
+ * - Performs a test run with hardcoded input.
+ *
+ * Edge Cases & Assumptions:
+ * - Assumes the file exists and is a valid Go source file.
+ * - Does not handle specific errors within the test run or client creation beyond reporting.
+
+*/
 func ParseFile(filename string) error {
 	fset := token.NewFileSet()
 

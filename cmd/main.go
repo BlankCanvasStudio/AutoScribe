@@ -11,6 +11,20 @@ import (
 	"github.com/BlankCanvasStudio/AutoScribe/pkg/openai/calls"
 )
 
+/*
+*
+* Main function orchestrates configuration loading, CLI parsing, documentation and help menu generation, and AST processing.
+*
+* Usage:
+* - Loads configuration settings from files and environment.
+* - Parses command-line interface arguments.
+* - Generates README, help menu implementation, or help menu text based on configuration flags.
+* - Parses and optionally documents or undocument the AST file specified in configuration.
+*
+* Parameters: none
+* Returns: none
+
+*/
 func main() {
 	err := config.LoadConfig()
 	if err != nil {

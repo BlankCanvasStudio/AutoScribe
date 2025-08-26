@@ -8,6 +8,28 @@ import (
 	"github.com/BlankCanvasStudio/AutoScribe/pkg/types"
 )
 
+/*
+*
+ * Combines multiple files into a single ConcatenatedFileContents string,
+ * appending each file's name and contents.
+ *
+ * Signature:
+ * func CombineFilesForContext(files []string) (types.ConcatenatedFileContents, error)
+ *
+ * Parameters:
+ * - files: []string - a list of file paths to read and concatenate.
+ *
+ * Returns:
+ * - types.ConcatenatedFileContents: concatenated content with file headers.
+ * - error: non-nil if reading any file fails.
+ *
+ * Errors/Exceptions:
+ * - Returns an error if reading a file fails, including the filename and underlying error.
+ *
+ * Side Effects:
+ * - Reads files from the filesystem.
+
+*/
 func CombineFilesForContext(files []string) (types.ConcatenatedFileContents, error) {
 	data := ""
 
@@ -22,6 +44,7 @@ func CombineFilesForContext(files []string) (types.ConcatenatedFileContents, err
 
 	return types.ConcatenatedFileContents(data), nil
 }
+
 
 func FormatCodeFilesForContext() (types.ConcatenatedFileContents, error) {
 	files, err := FilterForCodeFiles(config.ProjectDirectory)
@@ -43,6 +66,22 @@ func FormatCodeFilesForContext() (types.ConcatenatedFileContents, error) {
 	return types.ConcatenatedFileContents(data), nil
 }
 
+/*
+*
+Summary:
+Formats and concatenates the contents of build-related files within the project directory for easy inspection or processing.
+
+Signature:
+func FormatBuildFilesForContext() (types.ConcatenatedFileContents, error)
+
+Returns:
+- types.ConcatenatedFileContents: concatenated string containing filenames and their contents
+- error: error encountered during file filtering or reading
+
+Errors/Exceptions:
+Returns an error if filtering files fails or if reading any individual file fails.
+
+*/
 func FormatBuildFilesForContext() (types.ConcatenatedFileContents, error) {
 	files, err := FilterForBuildFiles(config.ProjectDirectory)
 	if err != nil {

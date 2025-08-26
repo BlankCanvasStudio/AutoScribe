@@ -29,9 +29,18 @@ var SupportedFormats = []SupportedFormat{
 	MarkDown,
 }
 
+/*
+*
+ * Checks if the given format string is supported.
+ *
+ * @param val {string} - The format string to verify.
+ * @returns {bool} - True if the format is supported; otherwise, false.
+
+*/
 func IsSupportedFormat(val string) bool {
 	return slices.Contains(SupportedFormats, SupportedFormat(val))
 }
+
 
 func (f SupportedFormat) FileIsThisFormat(path string) (string, bool) {
 	ext := filepath.Ext(path)
@@ -62,6 +71,14 @@ func (f SupportedFormat) FileIsThisFormat(path string) (string, bool) {
 	return ext, true
 }
 
+/*
+*
+ * Generates a list of shebang lines for the specified supported format.
+ *
+ * @param program SupportedFormat - the format of the program (e.g., 'python', 'bash') to include in the shebang lines.
+ * @return []string - a slice containing two shebang lines: one using '/usr/bin/env' and one using '/bin/'.
+
+*/
 func GenerateShebangs(program SupportedFormat) []string {
 	return []string{
 		"#!/usr/bin/env " + string(program),

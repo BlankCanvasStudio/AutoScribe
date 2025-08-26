@@ -9,6 +9,7 @@ import (
 	"regexp"
 )
 
+
 func FormatAsGoComment(input string) (string, error) {
 	fset := token.NewFileSet()
 

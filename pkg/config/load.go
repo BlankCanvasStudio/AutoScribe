@@ -34,6 +34,23 @@ var LogLevelDebug bool = false
 
 var AdditionalPrompt string = ""
 
+/*
+*
+ * LoadConfig checks for the existence of a configuration file and loads its contents.
+ * If the file does not exist, it attempts to retrieve the OpenAI API key from environment variables.
+ * Returns an error if reading or parsing the config fails or if the environment variable is missing.
+*
+ * Parameters:
+ * - None
+ *
+ * Returns:
+ * - error: Indicates success (nil) or failure with a description.
+ *
+ * Errors/Exceptions:
+ * - Fails if reading the config file or parsing its YAML content.
+ * - Fails if the environment variable "OPENAI_API_KEY" is missing when the config file does not exist.
+
+*/
 func LoadConfig() error {
 
 	_, err := os.Stat(ConfigFile)
@@ -67,6 +84,19 @@ func LoadConfig() error {
 	return nil
 }
 
+/*
+*
+ * Parses command-line arguments to configure AutoScribe behavior.
+ *
+ * Sets flags for displaying AST, creating README, generating help menu, specifying project and output directories, editing files, targeting file extensions, setting log level, providing configuration files, adding prompts, and managing documentation.
+ *
+ * Validates the file extension format and updates the project directory if provided as a positional argument.
+ *
+ * If the debug flag is set, adjusts the log level to debug.
+ *
+ * @return error if the file extension is unsupported, otherwise nil.
+
+*/
 func ParseCli() error {
 	// Set the flags
 	flag.StringVar(&AstFileName, "a", "", "Display the AST of a file")

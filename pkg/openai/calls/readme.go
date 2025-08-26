@@ -11,6 +11,20 @@ import (
 	"github.com/BlankCanvasStudio/AutoScribe/pkg/types"
 )
 
+/*
+*
+ * Creates a README.md file based on project files and AI-generated content.
+ *
+ * @param fileFormat supported format of the output files.
+ * @return error if the process fails.
+ *
+ * The function:
+ * - Gathers code and build file data for context.
+ * - Constructs a detailed prompt instructing an AI to generate a comprehensive README.
+ * - Sends the prompt to an AI model (GPT-4.1 Nano) and retrieves the response.
+ * - Writes the generated content to a README file in the specified output directory.
+
+*/
 func CreateReadme(fileFormat types.SupportedFormat) error {
 	data, err := files.FormatCodeFilesForContext()
 
