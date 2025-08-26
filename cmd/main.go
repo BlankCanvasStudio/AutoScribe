@@ -59,6 +59,10 @@ func main() {
 
     log.Infof("ast file name: %v", config.AstFileName)
     if config.AstFileName != "" {
+        if config.UndocumentAst {
+            ast.UndocumentDir(config.AstFileName, true)
+        }
+
         pkgNodes, err := ast.ParsePackage(config.AstFileName)
         if err != nil {
             log.Fatalf("failed to parse package: %v", err)
