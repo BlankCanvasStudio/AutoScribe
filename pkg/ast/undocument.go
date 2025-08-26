@@ -1,11 +1,12 @@
 package ast
 
 import (
-	"go/ast"
-	"go/parser"
-	"go/printer"
-	"go/token"
-	"os"
+    "os"
+    "fmt"
+    "go/ast"
+    "go/token"
+    "go/parser"
+    "go/printer"
 )
 
 func Undocument(filename string) error {
