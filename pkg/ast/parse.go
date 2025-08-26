@@ -732,6 +732,14 @@ func (p *PackageNode) FindStartEnd(n ast.Node) (int, int) {
 	return start, end
 }
 
+
+func (p *PackageNode) FindLineNo(n ast.Node) (int) {
+	if n == nil {
+		return -1
+	}
+	return p.Fset.Position(n.Pos()).Line
+}
+
 /*
 *
  * Finds the start and end offsets of an AST node within the source file.
