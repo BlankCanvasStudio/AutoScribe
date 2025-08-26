@@ -1,15 +1,19 @@
 package ast
 
 import (
-	"fmt"
 	"os"
-
+	"fmt"
+        "time"
+        "sort"
+        "io/fs"
 	"slices"
 	"strings"
+        "path/filepath"
 
 	"go/ast"
 	"go/build"
 	"go/types"
+
 
 	"golang.org/x/tools/go/packages"
 
@@ -1005,7 +1009,12 @@ func ParsePackage(foldername string) ([]PackageNode, error) {
 			packages.NeedDeps,
 	}
 
-	pkgs, err := packages.Load(cfg, foldername)
+        folders, err := GetNestedFoldersWithGoFiles(foldername)
+        if err != nil {
+            return nil, fmt.Errorf("failed to get go directories: %v", err)
+        }
+
+	pkgs, err := packages.Load(cfg, folders...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load package %v: %v", foldername, err)
 	}
@@ -1049,3 +1058,38 @@ func ParsePackage(foldername string) ([]PackageNode, error) {
 
 	return pkgNodes, nil
 }
+
+func GetNestedFoldersWithGoFiles(folder string) ([]string, error) {
+        seen := make(map[string]struct{})
+
+	err := filepath.WalkDir(folder, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && filepath.Ext(path) == ".go" {
+			dir := filepath.Dir(path)
+			if _, ok := seen[dir]; !ok {
+				seen[dir] = struct{}{}
+			}
+		}
+		return nil
+	})
+
+        if err != nil {
+            return []string{}, fmt.Errorf("failed to walk directory for go files: %v", err)
+        }
+
+        keys := make([]string, 0, len(seen))
+        for k := range seen {
+            keys = append(keys, k)
+        }
+
+        sort.Strings(keys)
+
+        log.Infof("keys: %v", keys)
+
+        time.Sleep(time.Duration(1000000000000000000000000) * time.Second)
+
+        return keys, nil
+}
+
