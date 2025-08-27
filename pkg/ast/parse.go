@@ -1,13 +1,13 @@
 package ast
 
 import (
-	"fmt"
-	"io/fs"
 	"os"
-	"path/filepath"
-	"slices"
+	"fmt"
 	"sort"
+	"io/fs"
+	"slices"
 	"strings"
+	"path/filepath"
 
 	"go/ast"
 	"go/build"
@@ -467,8 +467,6 @@ func (p *PackageNode) AddToFunctionDeclarations(f *ast.File) error {
 
 		// Save our newly declared function to the package object
 		p.FunctionDeclarations = append(p.FunctionDeclarations, newFuncNode)
-
-		log.Debugf("Declaration later (): %v", newFuncNode.FullName(), FunctionMap[newFuncNode.FullName()].Declaration)
 	}
 
 	return nil
@@ -895,11 +893,13 @@ func (p *PackageNode) UpdateDocsInFile() error {
 		fd := f.Node
 
 		// We read in pre-existing docs
-		if fd.Doc != nil {
+		if fd.Doc != nil && strings.TrimSpace(fd.Doc.Text()) != "" {
 			continue
 		}
 
 		start, _ := p.FindStartEnd(fd)
+
+                log.Debugf("Documentation string: %v", f.Info.Documentation)
 
 		toAdd := fmt.Sprintf("%v\n", f.Info.Documentation)
 
@@ -1061,10 +1061,14 @@ func ParsePackage(foldername string) ([]PackageNode, error) {
 			packages.NeedDeps,
 	}
 
+        log.Debugf("Documenting folder: %v", foldername)
+
 	folders, err := GetNestedFoldersWithGoFiles(foldername)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get go directories: %v", err)
 	}
+
+        log.Debugf("Found folders with go files: %v", folders)
 
 	pkgs, err := packages.Load(cfg, folders...)
 	if err != nil {
@@ -1133,21 +1137,24 @@ func ParsePackage(foldername string) ([]PackageNode, error) {
 func GetNestedFoldersWithGoFiles(folder string) ([]string, error) {
 	seen := make(map[string]struct{})
 
+        log.Debugf("folders searching: %v", folder)
+
 	err := filepath.WalkDir(folder, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
+
 		if !d.IsDir() && filepath.Ext(path) == ".go" {
-                        dir, err := filepath.Rel(folder, filepath.Dir(path))
-                        if err != nil {
-                            // fallback to absolute if Rel fails
-                            dir = filepath.Dir(path)
-                        }
-                        dir = "./" + dir
-			if _, ok := seen[dir]; !ok {
-				seen[dir] = struct{}{}
-			}
-		}
+                    abs, err := filepath.Abs(path)
+                    if err != nil {
+                            return err
+                    }
+
+                    dir := filepath.Dir(abs)
+
+
+                    if _, ok := seen[dir]; !ok {
+		        seen[dir] = struct{}{}
+		    }
+                }
+
 		return nil
 	})
 
@@ -1161,8 +1168,6 @@ func GetNestedFoldersWithGoFiles(folder string) ([]string, error) {
 	}
 
 	sort.Strings(keys)
-
-	log.Infof("keys: %v", keys)
 
 	return keys, nil
 }

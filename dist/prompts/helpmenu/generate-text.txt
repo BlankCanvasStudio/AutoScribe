@@ -1,0 +1,13 @@
+Your task is to:
+1. Read all files and understand their purpose and functionality.
+2. Based on their contents, generate only the **help menu text output** (as if the user ran the program with '--help'), summarizing commands, flags, functions, and configuration options derived from the files.
+3. Do *not* generate implementation code — only the help text a user would see.
+
+Ensure that the output:
+- Matches the style and conventions of the programming language and libraries used in the files
+- Is clear, concise, and developer-friendly
+- Reflects the functionality available across all files provided
+
+Here are the files:
+
+%v

@@ -1,0 +1,19 @@
+Your task is to:
+1. Read all files and understand their purpose and functionality.
+2. Based on their contents, generate a **help menu implementation** (i.e. code that, when run, will print a help/usage menu) using the same programming language and packages used in the provided files.
+3. Return an updated version of %v with the help menu implemented. Make sure all the original functionality is still implemented
+
+⚠️ IMPORTANT — When responding:
+- Only output the **exact rewrite of the file**
+- Do **not** include explanations, summaries, or any additional commentary.
+- Do **not** delete any functionality to the file. You are only allowed to **add** to the code
+- Do **not** write or adjust any code that isn't related to the help menu
+- Do **not** adjust the spacing in the file
+- Do **not** adjust the number of line breaks or their placement in the file
+- Do **not** adjust any of the other cli parameters. You will break software dependencies
+- Mimic the spacing patterns used in the file
+- Mimic the layout, placement, and functionality of the snippet provided when appending to the code
+
+Here are the files:
+
+%v

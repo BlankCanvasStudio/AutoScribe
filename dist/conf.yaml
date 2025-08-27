@@ -1,0 +1,9 @@
+OPENAI_API_KEY: ""
+ReadmePrompt: "/etc/autoscribe/prompts/readme.txt"
+HelpMenuPromptText: "/etc/autoscribe/prompts/helpmenu-text.txt"
+HelpMenuPromptImpl: "/etc/autoscribe/prompts/helpmenu-implementation.txt"
+DocsPrompt: "/etc/autoscribe/prompts/docs.txt"
+HelpMenuPromptText: "/etc/autoscribe/prompts/helpmenu/generate-text.txt"
+HelpMenuPromptCodeExample: "/etc/autoscribe/prompts/helpmenu/print-implementation.txt"
+HelpMenuPromptCodeUpdate: "/etc/autoscribe/prompts/helpmenu/update-implementation.txt"
+

@@ -12,10 +12,15 @@ import (
 )
 
 type Config struct {
-	OPENAI_API_KEY string `yaml:"OPENAI_API_KEY"`
+	OPENAI_API_KEY             string `yaml:"OPENAI_API_KEY"`
+        DocsPrompt                 string `yaml:"/etc/autoscribe/prompts/docs.txt"`
+        ReadmePrompt               string `yaml:"/etc/autoscribe/prompts/readme.txt"`
+        HelpMenuPromptText         string `yaml:"/etc/autoscribe/prompts/helpmenu/generate-text.txt"`
+        HelpMenuPromptCodeExample  string `yaml:"/etc/autoscribe/prompts/helpmenu/print-implementation.txt"`
+        HelpMenuPromptCodeUpdate   string `yaml:"/etc/autoscribe/prompts/helpmenu/update-implementation.txt"`
 }
 
-var ConfigFile string = "/etc/autoscribe/autoscribe.conf"
+var ConfigFile string = "/etc/autoscribe/conf.yaml"
 
 var OpenAIKey string
 
@@ -33,6 +38,16 @@ var UndocumentAst bool = false
 var LogLevelDebug bool = false
 
 var AdditionalPrompt string = ""
+
+
+// Prompt files
+var DocsPrompt                 string = "/etc/autoscribe/prompts/docs.txt"
+var ReadmePrompt               string = "/etc/autoscribe/prompts/readme.txt"
+var HelpMenuPromptText         string = "/etc/autoscribe/prompts/helpmenu/generate-text.txt"
+var HelpMenuPromptCodeExample  string = "/etc/autoscribe/prompts/helpmenu/print-implementation.txt"
+var HelpMenuPromptCodeUpdate   string = "/etc/autoscribe/prompts/helpmenu/update-implementation.txt"
+
+
 
 /*
 *
@@ -52,24 +67,44 @@ var AdditionalPrompt string = ""
 
 */
 func LoadConfig() error {
+    // Source global configs
+    err := LoadConfigFile(ConfigFile)
+    if err != nil {
+        return err
+    }
 
-	_, err := os.Stat(ConfigFile)
+    // Prefer local configs
+    err = LoadConfigFile("go.asb")
+    if err != nil {
+        return err
+    }
+
+    // Grab OpenAI key from env if it doesn't exist
+    if OpenAIKey == "" {
+	var exists bool
+	OpenAIKey, exists = os.LookupEnv("OPENAI_API_KEY")
+	if !exists {
+	    return fmt.Errorf("failed to strip OpenAI API key out of the env. doesn't exist")
+	}
+    }
+
+    return nil
+}
+
+
+func LoadConfigFile(filename string) error {
+	_, err := os.Stat(filename)
 
 	if os.IsNotExist(err) {
-		var exists bool
-		OpenAIKey, exists = os.LookupEnv("OPENAI_API_KEY")
-		if !exists {
-			return fmt.Errorf("failed to strip OpenAI API key out of the env. doesn't exist")
-		}
-		return nil
+            return nil
 
 	} else if err != nil {
-		return fmt.Errorf("failed to check for config %v: %v", ConfigFile, err)
+		return fmt.Errorf("failed to check for config %v: %v", filename, err)
 	}
 
-	log.Infof("Loading config from %v", ConfigFile)
+	log.Infof("Loading config from %v", filename)
 
-	data, err := os.ReadFile(ConfigFile)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return fmt.Errorf("error reading config file: %v", err)
 	}
@@ -80,6 +115,26 @@ func LoadConfig() error {
 	}
 
 	OpenAIKey = cfg.OPENAI_API_KEY
+
+        if cfg.DocsPrompt != "" {
+            DocsPrompt = cfg.DocsPrompt
+        }
+
+        if cfg.ReadmePrompt != "" {
+            ReadmePrompt = cfg.ReadmePrompt
+        }
+
+        if cfg.HelpMenuPromptText != "" {
+            HelpMenuPromptText = cfg.HelpMenuPromptText
+        }
+
+        if cfg.HelpMenuPromptCodeExample != "" {
+            HelpMenuPromptCodeExample = cfg.HelpMenuPromptCodeExample
+        }
+
+        if cfg.HelpMenuPromptCodeUpdate != "" {
+            HelpMenuPromptCodeUpdate = cfg.HelpMenuPromptCodeUpdate
+        }
 
 	return nil
 }

@@ -3,10 +3,12 @@ package formatting
 import (
 	// "fmt"
 
-	// "go/ast"
-	"go/parser"
-	"go/token"
 	"regexp"
+	// "go/ast"
+	"go/token"
+	"go/parser"
+
+	log "github.com/sirupsen/logrus"
 )
 
 
@@ -35,6 +37,9 @@ import (
 
 */
 func FormatAsGoComment(input string) (string, error) {
+	re := regexp.MustCompile("`[`]*[a-zA-Z0-9]*")
+	input = re.ReplaceAllString(input, "")
+
 	fset := token.NewFileSet()
 
 	file, err := parser.ParseFile(fset, "stdin.go", input, parser.ParseComments)
@@ -43,11 +48,11 @@ func FormatAsGoComment(input string) (string, error) {
 		input = "package main;\n" + input
 		file, err = parser.ParseFile(fset, "stdin.go", input, parser.ParseComments)
 		if err != nil {
+                    log.Debugf("error information: %+v", err)
 			return "", err
 		}
 	}
 
-	re := regexp.MustCompile("```[a-zA-Z0-9]*")
 
 	response := ""
 
@@ -55,7 +60,6 @@ func FormatAsGoComment(input string) (string, error) {
 		response += cg.Text()
 	}
 
-	response = re.ReplaceAllString(response, "")
 
 	return "/*\n" + response + "\n*/", nil
 }

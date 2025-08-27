@@ -3,7 +3,8 @@ all: \
 
 install: \
 	build/autoscribe \
-	/etc/autoscribe/autoscribe.conf \
+	/etc/autoscribe/conf.yaml \
+	/etc/autoscribe/prompts \
 	/usr/local/bin/autoscribe
 
 CMD_SOURCES := $(shell find cmd -name '*.go')
@@ -18,4 +19,7 @@ build/autoscribe: $(CMD_SOURCES) $(PKG_SOURCES)
 
 /usr/local/bin/autoscribe: build/autoscribe
 	cp build/autoscribe $@
+
+/etc/autoscribe/prompts:
+	mkdir -p $@
 

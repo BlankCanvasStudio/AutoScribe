@@ -1,46 +1,45 @@
 package calls
 
 import (
-	// "os"
-	"context"
+	"os"
 	"fmt"
+	"context"
 
 	"github.com/openai/openai-go/v2"
 	"github.com/openai/openai-go/v2/option"
 	// "github.com/openai/openai-go/v2/shared"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/BlankCanvasStudio/AutoScribe/pkg/config"
+	ai "github.com/BlankCanvasStudio/AutoScribe/pkg/openai"
 )
 
 /*
 *
- * Executes a chat completion request to the OpenAI API using the GPT-4.1 Nano model.
- *
- * Summary:
- * Sends a message to the OpenAI GPT-4.1 Nano model, optionally appending an additional prompt,
- * and returns the generated response content.
+ * Sends a message to the GPT-4.1 Nano model via OpenAI API and returns the response.
  *
  * Signature:
  * func Query4_1Nano(msg string) (string, error)
  *
  * Parameters:
- * - msg (string): The user message to send to the model.
+ * - msg: string; the input message to send to the model.
  *
  * Returns:
- * - string: The content of the first choice's message from the model's response.
- * - error: An error if the request fails.
+ * - string: the content of the model's reply.
+ * - error: non-nil if the API request fails.
  *
  * Errors/Exceptions:
- * - Returns an error if the API request fails.
+ * - Returns an error if the API request to OpenAI fails.
  *
  * Side Effects:
- * - Creates an API client.
- * - Sends a request over the network.
+ * - Creates an OpenAI client.
+ * - Makes a network request to the OpenAI API.
+ * - May append additional prompts from configuration.
  *
  * Edge Cases & Assumptions:
- * - Assumes `config.OpenAIKey` is a valid API key.
- * - Appends `config.AdditionalPrompt` if it's not empty.
- * - Uses context.TODO() for request context.
+ * - Assumes the API key and configuration are properly set.
+ * - Expects the API to return at least one choice.
 
 */
 func Query4_1Nano(msg string) (string, error) {
@@ -66,3 +65,56 @@ func Query4_1Nano(msg string) (string, error) {
 
 	return chatCompletion.Choices[0].Message.Content, nil
 }
+
+
+
+/*
+*
+ * Reads a prompt template from a file, formats it with given arguments, and sends it to the specified AI model.
+ *
+ * Signature:
+ * func QueryFromFile(model ai.Model, filename string, args ...any) (string, error)
+ *
+ * Parameters:
+ * - model: ai.Model; the AI model to use.
+ * - filename: string; path to the file containing the prompt template.
+ * - args: ...any; arguments to format the prompt template.
+ *
+ * Returns:
+ * - string: the response from the AI model.
+ * - error: if reading the file or querying the model fails.
+ *
+ * Errors/Exceptions:
+ * - Returns an error if reading the prompt file fails.
+ * - Returns an error if the specified model does not exist.
+ * - Returns an error if the API call to the model fails.
+ *
+ * Side Effects:
+ * - Reads a file from disk.
+ * - Logs the full prompt.
+ * - Makes an API call to the AI service.
+ *
+ * Edge Cases & Assumptions:
+ * - Assumes the prompt file exists and contains a valid format string.
+ * - Assumes the model is supported.
+ * - Assumes the API key and configuration are correctly set up.
+
+*/
+func QueryFromFile(model ai.Model, filename string, args ...any) (string, error) {
+    param_prompt, err := os.ReadFile(filename)
+    if err != nil {
+        return "", fmt.Errorf("failed to read %v: %v", filename, err)
+    }
+
+    full_prompt := fmt.Sprintf(string(param_prompt), args...)
+
+    log.Debugf("Full gpt prompt:\n%v\n", full_prompt)
+
+    switch model {
+        case ai.GPT_41_Nano:
+            return Query4_1Nano(full_prompt)
+        default:
+            return "", fmt.Errorf("model %v doesn't exist", model)
+    }
+}
+
