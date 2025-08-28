@@ -6,8 +6,8 @@ import (
 
     log "github.com/sirupsen/logrus"
 
-    "github.com/BlankCanvasStudio/AutoScribe/pkg/cli"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
+    "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/helpers"
 )
 
 var Cmd = &cobra.Command{
@@ -32,7 +32,10 @@ var createCmd = &cobra.Command{
     Run: func(cmd *cobra.Command, args []string) {
         log.Debugf("Create directive triggered")
 
-        configFiles := cli.GetConfigsFromFlags(cmd)
+        configFiles, err := helpers.GetConfigsFromFlags(cmd)
+        if err != nil {
+            log.Fatalf("failed to get the correct config files: %v", err)
+        }
 
         log.Infof("Saving to config files: %v", configFiles)
 

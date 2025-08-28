@@ -1,4 +1,4 @@
-package cli
+package helpers
 
 import (
     "fmt"
@@ -6,20 +6,20 @@ import (
 
     log "github.com/sirupsen/logrus"
 
-    "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/directive"
+    "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
 )
 
 func GetConfigsFromFlags(cmd *cobra.Command) ([]string, error) {
-    files := make([]string, 0, 3)
+    configFiles := make([]string, 0, 3)
 
     globalScope, err := cmd.Flags().GetBool("global")
     if err != nil {
-        return files, fmt.Errorf("failed to get global var: %v", err)
+        return configFiles, fmt.Errorf("failed to get global var: %v", err)
     }
 
     userScope, err := cmd.Flags().GetBool("user")
     if err != nil {
-        return files, fmt.Errorf("failed to get global var: %v", err)
+        return configFiles, fmt.Errorf("failed to get global var: %v", err)
     }
 
     configFile, err := cmd.Flags().GetString("config")
@@ -38,10 +38,10 @@ func GetConfigsFromFlags(cmd *cobra.Command) ([]string, error) {
 
         err := config.VerifyGlobalConfigExists()
         if err != nil {
-            return files, fmt.Errorf("failed to create global config file: %v", err)
+            return configFiles, fmt.Errorf("failed to create global config file: %v", err)
         }
 
-        files = append(files, config.GlobalConfigFile)
+        configFiles = append(configFiles, config.GlobalConfigFile)
     }
 
     if userScope {
@@ -49,15 +49,15 @@ func GetConfigsFromFlags(cmd *cobra.Command) ([]string, error) {
 
         err := config.VerifyUserConfigExists()
         if err != nil {
-            return files, fmt.Errorf("failed to create user config file: %v", err)
+            return configFiles, fmt.Errorf("failed to create user config file: %v", err)
         }
 
-        files = append(files, config.UserConfigFile)
+        configFiles = append(configFiles, config.UserConfigFile)
     }
 
     if len(configFiles) == 0 {
-        files = append(files, config.ProjectConfigFile)
+        configFiles = append(configFiles, config.ProjectConfigFile)
     }
 
-    return files, nil
+    return configFiles, nil
 }

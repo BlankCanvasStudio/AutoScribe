@@ -49,5 +49,3 @@ func Execute() {
     log.Infof("Adding cfg: %v", CfgFile)
 }
 
-
-func GetScopeFiles(cmd *cobra.Command)
