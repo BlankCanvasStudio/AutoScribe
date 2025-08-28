@@ -6,6 +6,7 @@ import (
 
     log "github.com/sirupsen/logrus"
 
+    "github.com/BlankCanvasStudio/AutoScribe/pkg/cli"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
 )
 
@@ -31,58 +32,11 @@ var createCmd = &cobra.Command{
     Run: func(cmd *cobra.Command, args []string) {
         log.Debugf("Create directive triggered")
 
-        globalScope, err := cmd.Flags().GetBool("global")
-        if err != nil {
-            log.Fatalf("failed to get global var: %v", err)
-        }
+        configFiles := cli.GetConfigsFromFlags(cmd)
 
-        userScope, err := cmd.Flags().GetBool("user")
-        if err != nil {
-            log.Fatalf("failed to get global var: %v", err)
-        }
-
-        configFile, err := cmd.Flags().GetString("config")
-        if err != nil {
-            log.Fatalf("failed to get config var: %v", err)
-        }
-
-        configFiles := []string{}
-
-        if configFile != "" {
-            configFiles = append(configFiles, configFile)        
-        } else {
-            log.Infof("config file empty")
-        } 
-
-        if globalScope {
-            log.Infof("adjusting global scope")
-
-            err := config.VerifyGlobalConfigExists()
-            if err != nil {
-                log.Fatalf("failed to create global config file: %v", err)
-            }
-
-            configFiles = append(configFiles, config.GlobalConfigFile)
-        }
-
-        if userScope {
-            log.Infof("adjusting user scope")
-
-            err := config.VerifyUserConfigExists()
-            if err != nil {
-                log.Fatalf("failed to create user config file: %v", err)
-            }
-
-            configFiles = append(configFiles, config.UserConfigFile)
-        }
-
-        if len(configFiles) == 0 {
-            configFiles = append(configFiles, config.ProjectConfigFile)
-        }
+        log.Infof("Saving to config files: %v", configFiles)
 
         savedConfig := config.Settings
-
-        log.Infof("Saved config files: %v", configFiles)
 
         directive := args[0]
         prompt := args[1]
