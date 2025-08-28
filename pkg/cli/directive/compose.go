@@ -55,6 +55,8 @@ var createCmd = &cobra.Command{
         } 
 
         if globalScope {
+            log.Infof("adjusting global scope")
+
             err := config.VerifyGlobalConfigExists()
             if err != nil {
                 log.Fatalf("failed to create global config file: %v", err)

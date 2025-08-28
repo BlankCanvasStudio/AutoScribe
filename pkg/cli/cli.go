@@ -6,7 +6,7 @@ import (
 
     log "github.com/sirupsen/logrus"
 
-    "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/directives"
+    "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/directive"
 )
 
 var CfgFile     string
@@ -38,7 +38,7 @@ func Execute() {
     rootCmd.PersistentFlags().BoolP("local",  "l", false, "Update current folder settings (default)")
 
     rootCmd.PersistentFlags().StringVarP(&CfgFile, "config", "c", "", "Specify config file to use")
-    // rootCmd.PersistentFlags().StringVarP(&GlobalLevel, "global", "g", "", "Should this command act on the global")
+
     rootCmd.AddCommand(versionCmd)
     rootCmd.AddCommand(directives.Cmd)
 
