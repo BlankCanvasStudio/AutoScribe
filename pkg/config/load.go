@@ -1,91 +1,46 @@
 package config
 
 import (
-	"flag"
-	"fmt"
-	"gopkg.in/yaml.v3"
 	"os"
+	"fmt"
+	// "flag"
+	"gopkg.in/yaml.v3"
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/BlankCanvasStudio/AutoScribe/pkg/types"
+	// "github.com/BlankCanvasStudio/AutoScribe/pkg/ai"
+	// "github.com/BlankCanvasStudio/AutoScribe/pkg/types"
 )
 
-type Config struct {
-	OPENAI_API_KEY             string `yaml:"OPENAI_API_KEY"`
-        DocsPrompt                 string `yaml:"/etc/autoscribe/prompts/docs.txt"`
-        ReadmePrompt               string `yaml:"/etc/autoscribe/prompts/readme.txt"`
-        HelpMenuPromptText         string `yaml:"/etc/autoscribe/prompts/helpmenu/generate-text.txt"`
-        HelpMenuPromptCodeExample  string `yaml:"/etc/autoscribe/prompts/helpmenu/print-implementation.txt"`
-        HelpMenuPromptCodeUpdate   string `yaml:"/etc/autoscribe/prompts/helpmenu/update-implementation.txt"`
+
+var Settings Config = Config {
+    Files: []string{},
+    Directives: make(map[string]Directive),
 }
 
-var ConfigFile string = "/etc/autoscribe/conf.yaml"
 
-var OpenAIKey string
-
-var ProjectDirectory string = "./"
-var OutputDirectory string = "./"
-var EditFile string = ""
-var LanguageFileExtension types.SupportedFormat = "sh"
-var MakeReadme bool = false
-var MakeHelpMenuImpl bool = false
-var MakeHelpMenuText bool = false
-var AstFileName string = ""
-var DocumentAst bool = false
-var UndocumentAst bool = false
-
-var LogLevelDebug bool = false
-
-var AdditionalPrompt string = ""
-
-
-// Prompt files
-var DocsPrompt                 string = "/etc/autoscribe/prompts/docs.txt"
-var ReadmePrompt               string = "/etc/autoscribe/prompts/readme.txt"
-var HelpMenuPromptText         string = "/etc/autoscribe/prompts/helpmenu/generate-text.txt"
-var HelpMenuPromptCodeExample  string = "/etc/autoscribe/prompts/helpmenu/print-implementation.txt"
-var HelpMenuPromptCodeUpdate   string = "/etc/autoscribe/prompts/helpmenu/update-implementation.txt"
-
-
-
-/*
-*
- * LoadConfig checks for the existence of a configuration file and loads its contents.
- * If the file does not exist, it attempts to retrieve the OpenAI API key from environment variables.
- * Returns an error if reading or parsing the config fails or if the environment variable is missing.
-*
- * Parameters:
- * - None
- *
- * Returns:
- * - error: Indicates success (nil) or failure with a description.
- *
- * Errors/Exceptions:
- * - Fails if reading the config file or parsing its YAML content.
- * - Fails if the environment variable "OPENAI_API_KEY" is missing when the config file does not exist.
-
-*/
 func LoadConfig() error {
     // Source global configs
-    err := LoadConfigFile(ConfigFile)
+    err := LoadConfigFile(GlobalConfigFile)
+    if err != nil {
+        return err
+    }
+
+    // Grab user configs (preferred over global)
+    err = LoadConfigFile(UserConfigFile)
     if err != nil {
         return err
     }
 
     // Prefer local configs
-    err = LoadConfigFile("go.asb")
+    err = LoadConfigFile(ProjectConfigFile)
     if err != nil {
         return err
     }
 
-    // Grab OpenAI key from env if it doesn't exist
-    if OpenAIKey == "" {
-	var exists bool
-	OpenAIKey, exists = os.LookupEnv("OPENAI_API_KEY")
-	if !exists {
-	    return fmt.Errorf("failed to strip OpenAI API key out of the env. doesn't exist")
-	}
+    err = Settings.SanityCheck()
+    if err != nil {
+        return fmt.Errorf("failed to sanity check configs: %v", err)
     }
 
     return nil
@@ -99,7 +54,7 @@ func LoadConfigFile(filename string) error {
             return nil
 
 	} else if err != nil {
-		return fmt.Errorf("failed to check for config %v: %v", filename, err)
+		return fmt.Errorf("failed to find config %v: %v", filename, err)
 	}
 
 	log.Infof("Loading config from %v", filename)
@@ -109,31 +64,28 @@ func LoadConfigFile(filename string) error {
 		return fmt.Errorf("error reading config file: %v", err)
 	}
 
-	var cfg Config
+        cfg := Config{ Files: []string{ filename } }
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return fmt.Errorf("error parsing yaml: %v", err)
 	}
 
-	OpenAIKey = cfg.OPENAI_API_KEY
-
-        if cfg.DocsPrompt != "" {
-            DocsPrompt = cfg.DocsPrompt
+        if Settings.Files == nil {
+            Settings.Files = []string{ filename }
+        } else {
+            Settings.Files = append(Settings.Files, filename)
         }
 
-        if cfg.ReadmePrompt != "" {
-            ReadmePrompt = cfg.ReadmePrompt
+        // Always prefer "more local values" if specified
+        if cfg.ApiKey != "" {
+            Settings.ApiKey = cfg.ApiKey
         }
 
-        if cfg.HelpMenuPromptText != "" {
-            HelpMenuPromptText = cfg.HelpMenuPromptText
+        if cfg.Model != "" {
+            Settings.Model = cfg.Model
         }
 
-        if cfg.HelpMenuPromptCodeExample != "" {
-            HelpMenuPromptCodeExample = cfg.HelpMenuPromptCodeExample
-        }
-
-        if cfg.HelpMenuPromptCodeUpdate != "" {
-            HelpMenuPromptCodeUpdate = cfg.HelpMenuPromptCodeUpdate
+        for name, directive := range cfg.Directives {
+            Settings.Directives[name] = directive
         }
 
 	return nil
@@ -152,6 +104,7 @@ func LoadConfigFile(filename string) error {
  * @return error if the file extension is unsupported, otherwise nil.
 
 */
+/*
 func ParseCli() error {
 	// Set the flags
 	flag.StringVar(&AstFileName, "a", "", "Display the AST of a file")
@@ -197,3 +150,5 @@ func ParseCli() error {
 
 	return nil
 }
+*/
+

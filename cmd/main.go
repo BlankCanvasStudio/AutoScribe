@@ -6,9 +6,9 @@ import (
 
 	// gast "go/ast"
 
-	"github.com/BlankCanvasStudio/AutoScribe/pkg/ast"
+	// "github.com/BlankCanvasStudio/AutoScribe/pkg/ast"
 	"github.com/BlankCanvasStudio/AutoScribe/pkg/config"
-	"github.com/BlankCanvasStudio/AutoScribe/pkg/openai/calls"
+	// "github.com/BlankCanvasStudio/AutoScribe/pkg/openai/calls"
 )
 
 /*
@@ -31,6 +31,7 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+        /*
 	err = config.ParseCli()
 	if err != nil {
 		log.Fatalf("Failed to parse cli: %v", err)
@@ -101,6 +102,7 @@ func main() {
 		}
 
 	}
+        */
 
 	log.Info("AutoScribe-d successfully!")
 }
