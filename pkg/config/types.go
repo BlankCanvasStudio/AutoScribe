@@ -1,6 +1,7 @@
 package config
 
 import (
+    "os"
     "fmt"
     "strings"
 
@@ -17,25 +18,25 @@ const (
 
 
 type Directive struct {
-    Name       string       `yaml:"name"`
-    Kind       DirectiveType `yaml:"kind"`
-    Prompt     string       `yaml:"prompt"`
-    PromptText string       `yaml:"prompt_text"`
-    Focus      []string     `yaml:"focus"`
-    Ignore     []string     `yaml:"ignore"`
-    Output     string       `yaml:"output"`
-    ApiKey     string       `yaml:"api_key"`
-    Model      ai.Model     `yaml:"model"`
-    LocalDocs  string       `yaml:"local_docs"`
-    Servers    []string     `yaml:"servers"`
+    Name       string       `yaml:"name,omitempty"`
+    Kind       DirectiveType `yaml:"kind,omitempty"`
+    Prompt     string       `yaml:"prompt,omitempty"`
+    PromptText string       `yaml:"prompt_text,omitempty"`
+    Focus      []string     `yaml:"focus,omitempty"`
+    Ignore     []string     `yaml:"ignore,omitempty"`
+    Output     string       `yaml:"output,omitempty"`
+    ApiKey     string       `yaml:"api_key,omitempty"`
+    Model      ai.Model     `yaml:"model,omitempty"`
+    LocalDocs  string       `yaml:"local_docs,omitempty"`
+    Servers    []string     `yaml:"servers,omitempty"`
 }
 
 type Config struct {
-    Files      []string
-    Directives map[string]Directive `yaml:"Directives"`
-    ApiKey     string               `yaml:"ApiKey"`
-    Model      ai.Model             `yaml:"model"`
-    LocalDocs  string               `yaml:"local_docs"`
+    ApiKey     string               `yaml:"apikey,omitempty"`
+    Model      ai.Model             `yaml:"model,omitempty"`
+    LocalDocs  string               `yaml:"local_docs,omitempty"`
+    Directives map[string]Directive `yaml:"directives,omitempty"`
+    Files      []string             `yaml:"files,omitempty"`
 }
 
 func (d *Directive) SanityCheck() error {
@@ -188,4 +189,22 @@ func (c *Config) PrettyPrint() {
 }
 
 
+func NewConfig() Config {
+    return Config {
+        Files: []string{},
+        Directives: make(map[string]Directive),
+    }
+}
+
+func NewDirective(name, prompt string) (*Directive, error) {
+    _, err := os.Stat(prompt);
+    if os.IsNotExist(err)  {
+        return nil, fmt.Errorf("prompt file %v doesn't exist", prompt)
+    }
+
+    return &Directive {
+        Name: name,
+        Prompt: prompt,
+    }, nil
+}
 

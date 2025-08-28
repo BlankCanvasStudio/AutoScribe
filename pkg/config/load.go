@@ -4,6 +4,7 @@ import (
 	"os"
 	"fmt"
 	// "flag"
+        "path/filepath"
 	"gopkg.in/yaml.v3"
 
 	log "github.com/sirupsen/logrus"
@@ -91,64 +92,60 @@ func LoadConfigFile(filename string) error {
 	return nil
 }
 
-/*
-*
- * Parses command-line arguments to configure AutoScribe behavior.
- *
- * Sets flags for displaying AST, creating README, generating help menu, specifying project and output directories, editing files, targeting file extensions, setting log level, providing configuration files, adding prompts, and managing documentation.
- *
- * Validates the file extension format and updates the project directory if provided as a positional argument.
- *
- * If the debug flag is set, adjusts the log level to debug.
- *
- * @return error if the file extension is unsupported, otherwise nil.
-
-*/
-/*
-func ParseCli() error {
-	// Set the flags
-	flag.StringVar(&AstFileName, "a", "", "Display the AST of a file")
-
-	flag.BoolVar(&MakeReadme, "r", false, "Make a README.md for a project")
-
-	flag.BoolVar(&MakeHelpMenuImpl, "m", false, "Make a help 'Menu' implementation for a project")
-	flag.BoolVar(&MakeHelpMenuText, "mt", false, "Write the text of a help 'Menu' for a project")
-
-	flag.StringVar(&ProjectDirectory, "d", "./", "Project directory to source files from")
-
-	flag.StringVar(&OutputDirectory, "o", "./", "Project directory / file to save output into")
-
-	flag.StringVar(&EditFile, "e", "", "Set the file you'd like AutoScribe to edit with new content")
-
-	extPtr := flag.String("l", "sh", "Set the file extensions we should be targetting")
-
-	flag.BoolVar(&LogLevelDebug, "debug", false, "Set log level to debug")
-
-	flag.StringVar(&ConfigFile, "c", "/etc/autoscribe/autoscribe.conf", "Set the config file for AutoScribe")
-
-	flag.StringVar(&AdditionalPrompt, "p", "", "Add additional instructions to the prompt generating your output")
-
-	flag.BoolVar(&DocumentAst, "docs", false, "Document the functions of a package")
-
-	flag.BoolVar(&UndocumentAst, "undocs", false, "Remove all the comments in a package")
-
-	flag.Parse()
-
-	if !types.IsSupportedFormat(*extPtr) {
-		return fmt.Errorf("unsupported language format %v", *extPtr)
+func SaveConfigFile(filename string, cfg Config) error {
+    cfg.Files = nil
+    	data, err := yaml.Marshal(&cfg)
+	if err != nil {
+            return fmt.Errorf("failed to marshal config: %v", err)
 	}
 
-	LanguageFileExtension = types.SupportedFormat(*extPtr)
-
-	if len(flag.Args()) > 0 && ProjectDirectory == "./" {
-		ProjectDirectory = flag.Arg(0)
+	if err := os.WriteFile(filename, data, 0644); err != nil {
+             return fmt.Errorf("failed to write %v: %v", filename, err)
 	}
 
-	if LogLevelDebug == true {
-		log.SetLevel(log.DebugLevel)
-	}
-
-	return nil
+        return nil
 }
-*/
+
+func VerifyUserConfigExists() error {
+    err := ExpandPaths()
+    if err != nil {
+        return fmt.Errorf("failed to resolve user path: %v", err)
+    }
+
+    // ensure parent dir exists
+    if err := os.MkdirAll(filepath.Dir(UserConfigFile), 0755); err != nil {
+        return fmt.Errorf("failed to make directories: %v", err)
+    }
+
+    // check file
+    if _, err := os.Stat(UserConfigFile); os.IsNotExist(err) {
+            if err := os.WriteFile(UserConfigFile, []byte{}, 0644); err != nil {
+                return fmt.Errorf("failed to write to file: %v")
+            }
+    } else if err == nil {
+        return nil
+    } else {
+        return err
+    }
+
+    return nil
+}
+
+func VerifyGlobalConfigExists() error {
+    // ensure parent dir exists
+    if err := os.MkdirAll(filepath.Dir(GlobalConfigFile), 0755); err != nil {
+        return fmt.Errorf("failed to make directories: %v", err)
+    }
+
+    // check file
+    if _, err := os.Stat(GlobalConfigFile); os.IsNotExist(err) {
+            if err := os.WriteFile(GlobalConfigFile, []byte{}, 0644); err != nil {
+                return fmt.Errorf("failed to write to file: %v")
+            }
+    } else if err != nil {
+        return err
+    }
+
+    return nil
+}
 

@@ -7,6 +7,7 @@ import (
 	// gast "go/ast"
 
 	// "github.com/BlankCanvasStudio/AutoScribe/pkg/ast"
+	"github.com/BlankCanvasStudio/AutoScribe/pkg/cli"
 	"github.com/BlankCanvasStudio/AutoScribe/pkg/config"
 	// "github.com/BlankCanvasStudio/AutoScribe/pkg/openai/calls"
 )
@@ -30,6 +31,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
+
+        cli.Execute()
 
         /*
 	err = config.ParseCli()
