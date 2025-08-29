@@ -23,7 +23,7 @@ var createCmd = &cobra.Command{
             log.Fatalf("failed to get the correct config files: %v", err)
         }
 
-        log.Infof("Saving to config files: %v", configFiles)
+        log.Debugf("Saving to config files: %v", configFiles)
 
         savedConfig := config.Settings
 
@@ -36,7 +36,7 @@ var createCmd = &cobra.Command{
         }
 
         for _, configFile := range configFiles {
-            log.Infof("Updating settings in: %v", configFile)
+            log.Debugf("Updating settings in: %v", configFile)
             config.Settings = config.NewConfig()
 
             config.LoadConfigFile(configFile)

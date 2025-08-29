@@ -319,7 +319,7 @@ func (p *PackageNode) PopulatePackageInformation() error {
 
 	for i, syn_ast := range p.Syntax {
 		p.CurrentFile = p.CompiledGoFiles[i]
-		log.Infof("Stripping ASTs from %v: ", p.CurrentFile)
+		log.Debugf("Stripping ASTs from %v: ", p.CurrentFile)
 
 		err := p.AddToImportMap(syn_ast)
 		if err != nil {

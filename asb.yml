@@ -1,0 +1,9 @@
+directives:
+    readme:
+        kind: text
+        prompt: /etc/autoscribe/prompts/readme.txt
+        model: GPT 4.1 Nano
+        output: README.md
+    testing3:
+        name: testing3
+        prompt: /tmp/testing3

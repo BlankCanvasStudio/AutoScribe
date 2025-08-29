@@ -12,7 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/BlankCanvasStudio/AutoScribe/pkg/config"
-	ai "github.com/BlankCanvasStudio/AutoScribe/pkg/openai"
+	"github.com/BlankCanvasStudio/AutoScribe/pkg/ai"
 )
 
 /*
@@ -42,15 +42,17 @@ import (
  * - Expects the API to return at least one choice.
 
 */
-func Query4_1Nano(msg string) (string, error) {
+func Query4_1Nano(directive config.Directive, msg string) (string, error) {
 	// Load API key
 	client := openai.NewClient(
-		option.WithAPIKey(config.OpenAIKey),
+		option.WithAPIKey(directive.ApiKey),
 	)
 
+        /*
 	if config.AdditionalPrompt != "" {
 		msg += fmt.Sprintf("\n-----------------------\nAdditionally:\n%v\n", config.AdditionalPrompt)
 	}
+        */
 
 	chatCompletion, err := client.Chat.Completions.New(context.TODO(), openai.ChatCompletionNewParams{
 		Messages: []openai.ChatCompletionMessageParamUnion{
@@ -100,13 +102,52 @@ func Query4_1Nano(msg string) (string, error) {
  * - Assumes the API key and configuration are correctly set up.
 
 */
-func QueryFromFile(model ai.Model, filename string, args ...any) (string, error) {
-    param_prompt, err := os.ReadFile(filename)
+func QueryFromDirective(directive config.Directive, args ...any) (string, error) {
+    param_prompt := directive.PromptText
+
+    if directive.PromptText == "" {
+        param_prompt_b, err := os.ReadFile(directive.Prompt)
+        if err != nil {
+            return "", fmt.Errorf("failed to read %v: %v", directive.Prompt, err)
+        }
+
+        param_prompt = string(param_prompt_b)
+    }
+
+    full_prompt := fmt.Sprintf(string(param_prompt), args...)
+
+    log.Debugf("Full gpt prompt:\n%v\n", full_prompt)
+
+    switch directive.Model {
+        case ai.GPT_41_Nano:
+            return Query4_1Nano(directive, full_prompt)
+        default:
+            return "", fmt.Errorf("model %v doesn't exist", directive.Model)
+    }
+}
+
+/*
+func QueryFromFile(directive config.Directive, args ...any) (string, error) {
+    param_prompt, err := os.ReadFile(directive.Prompt)
     if err != nil {
         return "", fmt.Errorf("failed to read %v: %v", filename, err)
     }
 
     full_prompt := fmt.Sprintf(string(param_prompt), args...)
+
+    log.Debugf("Full gpt prompt:\n%v\n", full_prompt)
+
+    switch directive.Model {
+        case ai.GPT_41_Nano:
+            return Query4_1Nano(full_prompt)
+        default:
+            return "", fmt.Errorf("model %v doesn't exist", model)
+    }
+}
+
+
+func QueryFromText(model ai.Model, promptText string, args ...any) (string, error) {
+    full_prompt := fmt.Sprintf(promptText, args...)
 
     log.Debugf("Full gpt prompt:\n%v\n", full_prompt)
 
@@ -117,4 +158,5 @@ func QueryFromFile(model ai.Model, filename string, args ...any) (string, error)
             return "", fmt.Errorf("model %v doesn't exist", model)
     }
 }
+*/
 

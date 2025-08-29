@@ -64,7 +64,7 @@ func LoadConfigFile(filename string) error {
 		return fmt.Errorf("failed to find config %v: %v", filename, err)
 	}
 
-	log.Infof("Loading config from %v", filename)
+	log.Debugf("Loading config from %v", filename)
 
 	data, err := os.ReadFile(filename)
 	if err != nil {
@@ -112,6 +112,21 @@ func SaveConfigFile(filename string, cfg Config) error {
         return nil
 }
 
+func VerifyLocalConfigExists() error {
+    // check file
+    if _, err := os.Stat(ProjectConfigFile); os.IsNotExist(err) {
+            if err := os.WriteFile(ProjectConfigFile, []byte{}, 0644); err != nil {
+                return fmt.Errorf("failed to write to file: %v")
+            }
+    } else if err == nil {
+        return nil
+    } else {
+        return err
+    }
+
+    return nil
+}
+
 func VerifyUserConfigExists() error {
     // ensure parent dir exists
     if err := os.MkdirAll(filepath.Dir(UserConfigFile), 0755); err != nil {
@@ -146,6 +161,27 @@ func VerifyGlobalConfigExists() error {
     } else if err != nil {
         return err
     }
+
+    return nil
+}
+
+var ConfigStack = []Config{}
+
+
+func PushLoadedConfig() error {
+    ConfigStack = append(ConfigStack, Settings)
+    Settings = NewConfig()
+
+    return nil
+}
+
+func PopLoadedConfig() error {
+    if len(ConfigStack) == 0 {
+        return fmt.Errorf("can't pop empty config stack")
+    }
+
+    Settings = ConfigStack[len(ConfigStack) - 1]
+    ConfigStack = ConfigStack[:len(ConfigStack) - 1]
 
     return nil
 }

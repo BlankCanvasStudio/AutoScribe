@@ -41,7 +41,7 @@ func DocumentFunctions(f *FunctionInfo) error {
 	}
 
 	if f.Declaration == nil {
-		log.Infof("No declaration for `%v`. Assuming its defined in another package...", f.Name)
+		log.Debugf("No declaration for `%v`. Assuming its defined in another package...", f.Name)
 		return nil
 	}
 
