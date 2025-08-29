@@ -315,6 +315,8 @@ func CreateCustomExportHandler(directive config.Directive) (*cobra.Command, erro
             // Idk if keeping the focus & ignore is the play
             toAdd.Focus = nil
             toAdd.Ignore = nil
+            toAdd.Model = ai.NoModel
+            toAdd.ApiKey = ""
 
             // Check if user specified what config to draw from
             globalScope, _, _, customScope, err := helpers.GetConfigScopeFlags(cmd)
