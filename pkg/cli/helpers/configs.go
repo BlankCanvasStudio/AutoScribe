@@ -61,3 +61,4 @@ func GetConfigsFromFlags(cmd *cobra.Command) ([]string, error) {
 
     return configFiles, nil
 }
+

@@ -21,8 +21,14 @@ var Settings Config = Config {
 
 
 func LoadConfig() error {
+    // Make sure we have absolute paths to everything. Go freaks out with a ~
+    err := ExpandPaths()
+    if err != nil {
+        return fmt.Errorf("failed to resolve user path: %v", err)
+    }
+
     // Source global configs
-    err := LoadConfigFile(GlobalConfigFile)
+    err = LoadConfigFile(GlobalConfigFile)
     if err != nil {
         return err
     }
@@ -107,11 +113,6 @@ func SaveConfigFile(filename string, cfg Config) error {
 }
 
 func VerifyUserConfigExists() error {
-    err := ExpandPaths()
-    if err != nil {
-        return fmt.Errorf("failed to resolve user path: %v", err)
-    }
-
     // ensure parent dir exists
     if err := os.MkdirAll(filepath.Dir(UserConfigFile), 0755); err != nil {
         return fmt.Errorf("failed to make directories: %v", err)

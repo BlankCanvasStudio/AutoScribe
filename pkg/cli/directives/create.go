@@ -1,27 +1,13 @@
 package directives
 
 import (
-    "fmt"
+    // "fmt"
     "github.com/spf13/cobra"
 
     log "github.com/sirupsen/logrus"
-
     "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/helpers"
 )
-
-var Cmd = &cobra.Command{
-  Use:   "directive",
-  Short: "Update information about & add custom directives",
-  Long:  ``,
-  Run: func(cmd *cobra.Command, args []string) {
-    fmt.Println("AutoScribe version 0.1")
-  },
-}
-
-func init() {
-    Cmd.AddCommand(createCmd)
-}
 
 var createCmd = &cobra.Command{
     Use:   "create [name] [prompt file]",

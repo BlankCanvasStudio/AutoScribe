@@ -18,17 +18,19 @@ const (
 
 
 type Directive struct {
-    Name       string       `yaml:"name,omitempty"`
-    Kind       DirectiveType `yaml:"kind,omitempty"`
-    Prompt     string       `yaml:"prompt,omitempty"`
-    PromptText string       `yaml:"prompt_text,omitempty"`
-    Focus      []string     `yaml:"focus,omitempty"`
-    Ignore     []string     `yaml:"ignore,omitempty"`
-    Output     string       `yaml:"output,omitempty"`
-    ApiKey     string       `yaml:"api_key,omitempty"`
-    Model      ai.Model     `yaml:"model,omitempty"`
-    LocalDocs  string       `yaml:"local_docs,omitempty"`
-    Servers    []string     `yaml:"servers,omitempty"`
+    Name        string        `yaml:"name,omitempty"`
+    Kind        DirectiveType `yaml:"kind,omitempty"`
+    Description string        `yaml:"description,omitempty"`
+    Short       string        `yaml:"short,omitempty"`
+    Prompt      string        `yaml:"prompt,omitempty"`
+    PromptText  string        `yaml:"prompt_text,omitempty"`
+    Focus       []string      `yaml:"focus,omitempty"`
+    Ignore      []string      `yaml:"ignore,omitempty"`
+    Model       ai.Model      `yaml:"model,omitempty"`
+    Output      string        `yaml:"output,omitempty"`
+    ApiKey      string        `yaml:"api_key,omitempty"`
+    LocalDocs   string        `yaml:"local_docs,omitempty"`
+    Servers     []string      `yaml:"servers,omitempty"`
 }
 
 type Config struct {
@@ -74,6 +76,13 @@ func (d *Directive) SanityCheck() error {
 
     if d.Servers == nil {
         d.Servers = make([]string, 0)
+    }
+
+    if d.Prompt != "" {
+        _, err := os.Stat(d.Prompt); 
+        if err != nil {
+            return fmt.Errorf("prompt file %v doesn't exist")
+        }    
     }
 
     return nil

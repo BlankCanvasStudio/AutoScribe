@@ -6,7 +6,7 @@ import (
 
     log "github.com/sirupsen/logrus"
 
-    "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/directive"
+    "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/directives"
 )
 
 var CfgFile     string
@@ -41,6 +41,16 @@ func Execute() {
 
     rootCmd.AddCommand(versionCmd)
     rootCmd.AddCommand(directives.Cmd)
+
+    customCmds, err := directives.CreateCustomCommands()
+    if err != nil {
+        log.Fatalf("Couldn't build custom directives: %v", customCmds)
+    }
+
+    for _, cmd := range customCmds {
+        rootCmd.AddCommand(cmd)
+    }
+
 
     if err := rootCmd.Execute(); err != nil {
         log.Fatalf("%v", err)
