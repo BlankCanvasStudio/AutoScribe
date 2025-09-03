@@ -2,6 +2,7 @@ package cli
 
 import (
     "fmt"
+    "slices"
     "github.com/spf13/cobra"
 
     log "github.com/sirupsen/logrus"
@@ -36,12 +37,32 @@ var rootCmd = &cobra.Command{
 }
 
 var versionCmd = &cobra.Command{
-  Use:   "version",
-  Short: "Print the version number of AutoScribe",
-  Long:  `All software has versions. This is AutoScribe's`,
-  Run: func(cmd *cobra.Command, args []string) {
-    fmt.Println("AutoScribe version 0.1")
-  },
+    Use:   "version",
+    Short: "Print the version number of AutoScribe",
+    Long:  `All software has versions. This is AutoScribe's`,
+    Run: func(cmd *cobra.Command, args []string) {
+        fmt.Println("AutoScribe version 0.1")
+    },
+}
+
+var versionCmd = &cobra.Command{
+    Use:   "run",
+    Short: "Run all the directives initialized in this repository",
+    Long:  `Run all the directives initialized in this repository`,
+    Run: func(cmd *cobra.Command, args []string) {
+        configScopes, err := helpers.GetConfigsFromFlags(cmd)
+
+        for name, directive := config.Settings.Directives {
+            if !slices.Contains(configScopes, directive.Scope) {
+                continue
+            }
+
+            err := directive.Execute()
+            if err != nil {
+                log.Fatal("failed to execte directive %v: %v", directive.Name, err)
+            }
+        }
+    },
 }
 
 func Execute() {

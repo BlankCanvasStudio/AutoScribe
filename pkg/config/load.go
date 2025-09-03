@@ -92,6 +92,13 @@ func LoadConfigFile(filename string) error {
         }
 
         for name, directive := range cfg.Directives {
+            d, exists := Settings.Directives[name]
+            if exists {
+                directive.Update(d)
+            } else {
+                directive.Scope = filename
+            }
+
             Settings.Directives[name] = directive
         }
 

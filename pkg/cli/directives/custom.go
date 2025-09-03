@@ -166,21 +166,9 @@ func CreateCustomRunHandler(directive config.Directive) (*cobra.Command, error) 
         Args:  cobra.ExactArgs(0),
 
         Run: func(cmd *cobra.Command, args []string) {
-            data, err := formatting.CombineFilesForContext(directive.Focus, directive.Ignore)
+            err := directive.Execute()
             if err != nil {
-                log.Fatalf("failed to combine files for context: %v", err)
-            }
-
-            aiResult, err := calls.QueryFromDirective(directive, data)
-
-            if directive.Output == "" {
-                fmt.Printf("Output:\n\n%v\n", aiResult)
-                return 
-            }
-
-            err = os.WriteFile(directive.Output, []byte(aiResult), 0644)
-            if err != nil {
-                log.Fatalf("failed to write ai output to %v: %v", directive.Output, err)
+                log.Fatal("failed to execte directive %v: %v", directive.Name, err)
             }
         },
     }, nil
@@ -317,6 +305,7 @@ func CreateCustomExportHandler(directive config.Directive) (*cobra.Command, erro
             toAdd.Ignore = nil
             toAdd.Model = ai.NoModel
             toAdd.ApiKey = ""
+            toAdd.Scope = ""
 
             // Check if user specified what config to draw from
             globalScope, _, _, customScope, err := helpers.GetConfigScopeFlags(cmd)

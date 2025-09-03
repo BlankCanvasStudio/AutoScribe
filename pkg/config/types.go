@@ -31,6 +31,7 @@ type Directive struct {
     ApiKey      string        `yaml:"api_key,omitempty"`
     LocalDocs   string        `yaml:"local_docs,omitempty"`
     Servers     []string      `yaml:"servers,omitempty"`
+    Scope       string        `yaml:"scope,omit"`
 }
 
 type Config struct {
@@ -117,6 +118,81 @@ func (d *Directive) PrettyPrint(prefix string) {
     }
 
     fmt.Println("")
+}
+
+
+func (d *Directive) Execute() error {
+    data, err := formatting.CombineFilesForContext(directive.Focus, directive.Ignore)
+    if err != nil {
+        return fmt.Errorf("failed to combine files for context: %v", err)
+    }
+
+    aiResult, err := calls.QueryFromDirective(directive, data)
+
+    if directive.Output == "" {
+        fmt.Printf("Output:\n\n%v\n", aiResult)
+        return nil
+    }
+
+    err = os.WriteFile(directive.Output, []byte(aiResult), 0644)
+    if err != nil {
+        return fmt.Errorf("failed to write ai output to %v: %v", directive.Output, err)
+    }
+    
+    return nil
+}
+
+
+func (d *Directive) Update(u Directive) error {
+    if d.Kind == NoneDirective {
+        d.Kind = u.Kind
+    }
+
+    if d.Description == "" {
+        d.Description = u.Description
+    }
+
+    if d.Short == "" {
+        d.Short = u.Short
+    }
+    
+    if d.Prompt == "" {
+        d.Prompt = u.Prompt
+    }
+
+    if d.PromptText == "" {
+        d.PromptText = u.PromptText
+    }
+
+    if d.Focus == nil || len(d.Focus) == 0 {
+        d.Focus = u.Focus
+    }
+
+    if d.Ignore == nil || len(d.Ignore) == 0 {
+        d.Ignore = u.Ignore
+    }
+
+    if d.Model == NoModel {
+        d.Model = u.Model
+    }
+
+    if d.Output == "" {
+        d.Output = u.Output
+    }
+
+    if d.ApiKey == "" {
+        d.== = u..==
+    }
+
+    if d.LocalDocs == "" {
+        d.LocalDocs = u.LocalDocs
+    }
+
+    if d.Server == nil || len(d.Server) == 0 {
+        d.Server = u.Server
+    }
+
+    return nil
 }
 
 
