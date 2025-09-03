@@ -41,7 +41,7 @@ func TestInitHandler(t *testing.T) {
     }
 
     // Initialize Directive we just saved into project scope
-    err = directives.InitDirectiveInLocalScope([]string{saveToConfig}, *directive, []string{"fileOne", "fileTwo"})
+    err = directives.InitDirectiveInLocalScope(*directive, []string{"fileOne", "fileTwo"}, []string{saveToConfig})
     if err != nil {
         log.Fatalf("Failed to init directive in local scope: %v", err)
     }
@@ -76,40 +76,63 @@ func TestInitHandler(t *testing.T) {
     config.PopLoadedConfig()
 }
 
-/*
 func TestExportHandler(t *testing.T) {
+    var err error
+
     // Create sample config file in local directory
-    name := "someDirective"
-    prompt_file := "/tmp/random"
+    name := "readme"
+    loadConfig := "./ymls/valid.yml"
     saveToConfig := "/tmp/testing"
-    configs := []string{types.ProjectDirectory}
 
-
-    os.WriteFile(prompt_file, []byte{}, 0644)
-
-    err := directives.CreateNewDirective(name, prompt_file, configs)
-    if err != nil {
-        log.Fatalf("failed to create directive: %v", err)
-    }
-
-
-    // Load the local config
+    // Load the default scope
     config.PushLoadedConfig()
-    err = config.LoadConfigFile(configs[0])
-    if err != nil {
-        log.Fatalf("failed to load %v: %v", prompt_file, err)
+    {
+
+        err = config.LoadConfigFile(saveToConfig)
+        if err != nil {
+            log.Fatalf("Failed to load configs: %v", err)
+        }
+
+        if _, ok := config.Settings.Directives[name]; ok {
+            log.Fatalf("Loaded %v from non-local scope (it shouldn't be saved there)", name)
+        }
     }
-
-
-    err = directives.CreateCustomInitHandler()
-
-
-    // Undo local config loading
     config.PopLoadedConfig()
 
-    // leave no trace
+    // Load testing config into scope
+    err = config.LoadConfigFile(loadConfig)
+    if err != nil {
+        log.Fatalf("Failed to load config %v: %v", loadConfig, err)
+    }
+
+    readme := config.Settings.Directives["readme"]
+
+    // Initialize Directive we just saved into project scope
+    err = directives.ExportCustomDirective(readme, []string{saveToConfig})
+    if err != nil {
+        log.Fatalf("Failed to init directive in local scope: %v", err)
+    }
+
+
+    // Load the default scope
+    config.PushLoadedConfig()
+    {
+
+        // Load our updated config file
+        err = config.LoadConfigFile(saveToConfig)
+        if err != nil {
+            log.Fatalf("Failed to load configs: %v", err)
+        }
+
+        // Verify we laoded it from the new config
+        if _, ok := config.Settings.Directives[name]; !ok {
+            log.Fatalf("Loaded %v from non-local scope (it should be saved there)", name)
+        }
+    }
+    config.PopLoadedConfig()
+
     os.Remove(saveToConfig)
-    os.Remove("./asb.yml")
+
+    config.PopLoadedConfig()
 }
-*/
 

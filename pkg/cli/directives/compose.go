@@ -234,7 +234,7 @@ func CreateCustomInitHandler(directive types.Directive) (*cobra.Command, error) 
                 log.Fatalf("failed to get the correct config files: %v", err)
             }
 
-            err = InitDirectiveInLocalScope(configFiles, directive, args)
+            err = InitDirectiveInLocalScope(directive, args, configFiles)
             if err != nil {
                 log.Fatalf("failed to init %v locally: %v", directive.Name, err)
             }
@@ -243,6 +243,46 @@ func CreateCustomInitHandler(directive types.Directive) (*cobra.Command, error) 
         },
     }, nil
 }
+
+
+func CreateCustomExportHandler(directive types.Directive) (*cobra.Command, error) {
+    log.Debugf("Executing %v custom init handler", directive.Name)
+
+    desc := fmt.Sprintf("Export the %v directive to various configs", directive.Name)
+
+    return &cobra.Command{
+        Use: "export [files]",
+        Short: desc,
+        Long:  desc,
+
+        Run: func(cmd *cobra.Command, args []string) {
+
+            // Check if user specified what config to draw from
+            globalScope, _, _, customScope, err := helpers.GetConfigScopeFlags(cmd)
+            if err != nil {
+                log.Fatalf("Failed to load config scope flags: %v", err)
+            }
+
+            // Export to user scope by default
+            if !globalScope && !customScope {
+                cmd.Flags().Set("user", "true")
+            }
+
+            // Get the config files
+            configFiles, err := helpers.GetConfigsFromFlags(cmd)
+            if err != nil {
+                log.Fatalf("Failed to get the correct config files: %v", err)
+            }
+
+            err = ExportCustomDirective(directive, configFiles)
+            if err != nil {
+                log.Fatalf("Failed to export custom directive: %v", err)
+            }
+        },
+    }, nil
+}
+
+
 
 
 

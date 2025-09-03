@@ -16,20 +16,68 @@ import (
 )
 
 
-func InitDirectiveInLocalScope(configFiles []string, directive types.Directive, toFocus []string) error {
-            log.Debugf("Looking for directive: %v", directive.Name)
-            log.Debugf("Looking at configs: %v", configFiles)
+func InitDirectiveInLocalScope(directive types.Directive, toFocus []string, configFiles []string) error {
+    log.Debugf("Looking for directive: %v", directive.Name)
+    log.Debugf("Looking at configs: %v", configFiles)
+
+    config.PushLoadedConfig()
+
+    {
+
+        config.LoadConfigFile(config.ProjectConfigFile)
+
+        _, exists := config.Settings.Directives[directive.Name]
+        if exists {
+            log.Infof("Directive %v already initialized", directive.Name)
+            return nil
+        }
+
+    }
+
+    err := config.PopLoadedConfig()
+    if err != nil {
+        return fmt.Errorf("Failed to PopLoadedConfig: %v", err)
+    }
+
+
+    // Iterate to move "up" in scope
+    for i := 0; i < len(configFiles); i++ {
+        config.PushLoadedConfig()
+
+        {
+
+            // Load those settings cofigs
+            config.LoadConfigFile(configFiles[i])
+
+            // Verify that directive exists
+            toLoad, exists := config.Settings.Directives[directive.Name]
+            if !exists {
+                log.Debugf("Directive %v not defined in %v", directive.Name, configFiles[i])
+                err := config.PopLoadedConfig()
+                if err != nil {
+                    return fmt.Errorf("Failed to PopLoadedConfig: %v", err)
+                }
+
+                continue
+            }
 
             config.PushLoadedConfig()
 
             {
 
+                // Load the config to append to
                 config.LoadConfigFile(config.ProjectConfigFile)
 
-                _, exists := config.Settings.Directives[directive.Name]
-                if exists {
-                    log.Infof("Directive %v already initialized", directive.Name)
-                    return nil
+                // load things to focus for ease of use
+                for _, arg := range toFocus {
+                    toLoad.Focus = append(toLoad.Focus, arg)
+                }
+
+                config.Settings.Directives[directive.Name] = toLoad
+
+                err = config.SaveConfigFile(config.ProjectConfigFile, config.Settings)
+                if err != nil {
+                    return fmt.Errorf("Failed to save to config %v: %v", configFiles[i], err)
                 }
 
             }
@@ -39,127 +87,51 @@ func InitDirectiveInLocalScope(configFiles []string, directive types.Directive, 
                 return fmt.Errorf("Failed to PopLoadedConfig: %v", err)
             }
 
+        }
 
-            // Iterate to move "up" in scope
-            for i := 0; i < len(configFiles); i++ {
-                config.PushLoadedConfig()
+        err := config.PopLoadedConfig()
+        if err != nil {
+            return fmt.Errorf("Failed to PopLoadedConfig: %v", err)
+        }
 
-                {
+        log.Infof("Initialized %v from %v", directive.Name, configFiles[i])
 
-                    // Load those settings cofigs
-                    config.LoadConfigFile(configFiles[i])
+        return nil
+    }
 
-                    // Verify that directive exists
-                    toLoad, exists := config.Settings.Directives[directive.Name]
-                    if !exists {
-                        log.Debugf("Directive %v not defined in %v", directive.Name, configFiles[i])
-                        err := config.PopLoadedConfig()
-                        if err != nil {
-                            return fmt.Errorf("Failed to PopLoadedConfig: %v", err)
-                        }
-
-                        continue
-                    }
-
-                    config.PushLoadedConfig()
-
-                    {
-
-                        // Load the config to append to
-                        config.LoadConfigFile(config.ProjectConfigFile)
-
-                        // load things to focus for ease of use
-                        for _, arg := range toFocus {
-                            toLoad.Focus = append(toLoad.Focus, arg)
-                        }
-
-                        config.Settings.Directives[directive.Name] = toLoad
-
-                        err = config.SaveConfigFile(config.ProjectConfigFile, config.Settings)
-                        if err != nil {
-                            return fmt.Errorf("Failed to save to config %v: %v", configFiles[i], err)
-                        }
-
-                    }
-
-                    err := config.PopLoadedConfig()
-                    if err != nil {
-                        return fmt.Errorf("Failed to PopLoadedConfig: %v", err)
-                    }
- 
-                }
-
-                err := config.PopLoadedConfig()
-                if err != nil {
-                    return fmt.Errorf("Failed to PopLoadedConfig: %v", err)
-                }
-
-                log.Infof("Initialized %v from %v", directive.Name, configFiles[i])
-
-                return nil
-            }
-
-            return fmt.Errorf("Couldn't load directive %v not found in configs: %v", directive, configFiles)
+    return fmt.Errorf("Couldn't load directive %v not found in configs: %v", directive, configFiles)
 }
 
 
-func CreateCustomExportHandler(directive types.Directive) (*cobra.Command, error) {
-    log.Debugf("Executing %v custom init handler", directive.Name)
+func ExportCustomDirective(directive types.Directive, configFiles []string) error {
 
-    desc := fmt.Sprintf("Export the %v directive to various configs", directive.Name)
+    toAdd := config.Settings.Directives[directive.Name]
 
-    return &cobra.Command{
-        Use: "export [files]",
-        Short: desc,
-        Long:  desc,
+    // Idk if keeping the focus & ignore is the play
+    toAdd.Focus = nil
+    toAdd.Ignore = nil
+    toAdd.Model = types.NoModel
+    toAdd.ApiKey = ""
+    toAdd.Scope = ""
 
-        Run: func(cmd *cobra.Command, args []string) {
+    // Iterate to move "up" in scope
+    for _, configFile := range configFiles {
+        config.PushLoadedConfig()
+        {
 
-            toAdd := config.Settings.Directives[directive.Name]
+            config.LoadConfigFile(configFile)
 
-            // Idk if keeping the focus & ignore is the play
-            toAdd.Focus = nil
-            toAdd.Ignore = nil
-            toAdd.Model = types.NoModel
-            toAdd.ApiKey = ""
-            toAdd.Scope = ""
+            config.Settings.Directives[toAdd.Name] = toAdd
 
-            // Check if user specified what config to draw from
-            globalScope, _, _, customScope, err := helpers.GetConfigScopeFlags(cmd)
+            err := config.SaveConfigFile(configFile, config.Settings)
             if err != nil {
-                log.Fatalf("failed to load config scope flags: %v", err)
+                return fmt.Errorf("Failed to create new directive: %v", err)
             }
+        }
+    }
 
-            // Export to user scope by default
-            if !globalScope && !customScope {
-                cmd.Flags().Set("user", "true")
-            }
-
-            // Get the config files
-            configFiles, err := helpers.GetConfigsFromFlags(cmd)
-            if err != nil {
-                log.Fatalf("failed to get the correct config files: %v", err)
-            }
-
-            // Iterate to move "up" in scope
-            for _, configFile := range configFiles {
-                config.PushLoadedConfig()
-                {
-
-                    config.LoadConfigFile(configFile)
-
-                    config.Settings.Directives[toAdd.Name] = toAdd
-
-                    err := config.SaveConfigFile(configFile, config.Settings)
-                    if err != nil {
-                        log.Fatalf("Failed to create new directive: %v", err)
-                    }
-                }
-            }
-        },
-    }, nil
+    return nil
 }
-
 
 // We can honestly also probably do some fuck shit with introspection & spread operator 
 //      to write this automatically. Too lazy. Copy, paste, find, and replace too EZ
