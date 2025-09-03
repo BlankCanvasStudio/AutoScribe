@@ -6,6 +6,7 @@ import (
 
     "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/directives"
+    "github.com/BlankCanvasStudio/AutoScribe/tests/helpers"
 )
 
 func TestSanityCheck(t *testing.T) {
@@ -19,12 +20,14 @@ func TestSanityCheck(t *testing.T) {
         log.Fatalf("failed to sanity check configs: %v", err)
     }
 
-    config.Settings.PrettyPrint()
+    // config.Settings.PrettyPrint()
 }
 
 
 func TestAddDirective(t *testing.T) {
-    output_config := "/tmp/sample.config"    
+    // output_config := "/tmp/sample.config"    
 
-    directives.CreateCmd.Run(CreateCmd, []string{"testing", "/tmp/testing")
+    cnf := helpers.NewCobraConfig()
+
+    directives.CreateCmd.Run(cnf, []string{"testing", "/tmp/testing"})
 }

@@ -70,18 +70,18 @@ var runCmd = &cobra.Command{
     },
 }
 
-func Execute() {
-    rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Enable debug logging")
-    rootCmd.PersistentFlags().BoolP("global", "g", false, "Utilize global settings (otherwise local folder)")
-    rootCmd.PersistentFlags().BoolP("user",   "u", false, "Utilize user settings (otherwise local folder)")
-    rootCmd.PersistentFlags().BoolP("local",  "l", false, "Utilize current folder settings (default)")
-    rootCmd.PersistentFlags().StringVarP(&CfgFile, "prompt", "p", "", "Add additional context to your directive's prompt")
+func AddFlagsToCmd(in *cobra.Command) {
+    in.PersistentFlags().BoolVar(&debug, "debug", false, "Enable debug logging")
+    in.PersistentFlags().BoolP("global", "g", false, "Utilize global settings (otherwise local folder)")
+    in.PersistentFlags().BoolP("user",   "u", false, "Utilize user settings (otherwise local folder)")
+    in.PersistentFlags().BoolP("local",  "l", false, "Utilize current folder settings (default)")
+    in.PersistentFlags().StringVarP(&CfgFile, "prompt", "p", "", "Add additional context to your directive's prompt")
 
-    rootCmd.PersistentFlags().StringVarP(&CfgFile, "config", "c", "", "Specify config file to use")
+    in.PersistentFlags().StringVarP(&CfgFile, "config", "c", "", "Specify config file to use")
 
-    rootCmd.AddCommand(runCmd)
-    rootCmd.AddCommand(versionCmd)
-    rootCmd.AddCommand(directives.Cmd)
+    in.AddCommand(runCmd)
+    in.AddCommand(versionCmd)
+    in.AddCommand(directives.Cmd)
 
     customCmds, err := directives.CreateCustomCommands()
     if err != nil {
@@ -89,9 +89,12 @@ func Execute() {
     }
 
     for _, cmd := range customCmds {
-        rootCmd.AddCommand(cmd)
+        in.AddCommand(cmd)
     }
+}
 
+func Execute() {
+    AddFlagsToCmd(rootCmd)
 
     if err := rootCmd.Execute(); err != nil {
         log.Fatalf("%v", err)
