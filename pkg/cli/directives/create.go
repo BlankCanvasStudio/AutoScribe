@@ -10,7 +10,7 @@ import (
     "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/helpers"
 )
 
-var createCmd = &cobra.Command{
+var CreateCmd = &cobra.Command{
     Use:   "create [name] [prompt file]",
     Short: "",
     Long:  ``,

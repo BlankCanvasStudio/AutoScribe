@@ -5,6 +5,7 @@ import (
     log "github.com/sirupsen/logrus"
 
     "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
+    "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/directives"
 )
 
 func TestSanityCheck(t *testing.T) {
@@ -21,3 +22,9 @@ func TestSanityCheck(t *testing.T) {
     config.Settings.PrettyPrint()
 }
 
+
+func TestAddDirective(t *testing.T) {
+    output_config := "/tmp/sample.config"    
+
+    directives.CreateCmd.Run(CreateCmd, []string{"testing", "/tmp/testing")
+}

@@ -72,9 +72,9 @@ var runCmd = &cobra.Command{
 
 func Execute() {
     rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Enable debug logging")
-    rootCmd.PersistentFlags().BoolP("global", "g", false, "Update global settings (otherwise local folder)")
-    rootCmd.PersistentFlags().BoolP("user",   "u", false, "Update user settings (otherwise local folder)")
-    rootCmd.PersistentFlags().BoolP("local",  "l", false, "Update current folder settings (default)")
+    rootCmd.PersistentFlags().BoolP("global", "g", false, "Utilize global settings (otherwise local folder)")
+    rootCmd.PersistentFlags().BoolP("user",   "u", false, "Utilize user settings (otherwise local folder)")
+    rootCmd.PersistentFlags().BoolP("local",  "l", false, "Utilize current folder settings (default)")
     rootCmd.PersistentFlags().StringVarP(&CfgFile, "prompt", "p", "", "Add additional context to your directive's prompt")
 
     rootCmd.PersistentFlags().StringVarP(&CfgFile, "config", "c", "", "Specify config file to use")
