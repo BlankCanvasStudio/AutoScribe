@@ -60,9 +60,8 @@ func LoadConfigFile(filename string) error {
 
 	if os.IsNotExist(err) {
             return nil
-
 	} else if err != nil {
-		return fmt.Errorf("failed to find config %v: %v", filename, err)
+	    return fmt.Errorf("failed to find config %v: %v", filename, err)
 	}
 
 	log.Debugf("Loading config from %v", filename)

@@ -1,22 +1,23 @@
-ApiKey: "some-string-of-text"
+apikey: "some-string-of-text"
 
-Directives:
-  README: 
+directives:
+  readme: 
     prompt: /etc/autoscribe/prompts/readme.txt
     kind: text
     output: README.md
     model: GPT 4.1 Nano
-  HelpMenu:
+  helpmenu:
     prompt: /etc/autoscribe/prompts/helpmenu/generate-text.txt
     kind: text
-  HelpImplementation:
+  helpimplementation:
     prompt: /etc/autoscribe/prompts/helpmenu/print-implementation.txt
-    kind: text
-  HelpUpdate:
+  helpupdate:
     prompt: /etc/autoscribe/prompts/helpmenu/update-implementation.txt
     kind: text
   docs:
     prompt: /etc/autoscribe/prompts/docs.txt
     kind: docs
-
+  pt:
+    prompt_text: "some prompt text"
+    kind: text
 

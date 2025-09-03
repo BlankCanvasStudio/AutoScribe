@@ -10,7 +10,7 @@ import (
 
 type Config struct {
     ApiKey     string                     `yaml:"apikey,omitempty"`
-    Model      types.Model                   `yaml:"model,omitempty"`
+    Model      types.Model                `yaml:"model,omitempty"`
     LocalDocs  string                     `yaml:"local_docs,omitempty"`
     Directives map[string]types.Directive `yaml:"directives,omitempty"`
     Files      []string                   `yaml:"files,omitempty"`
