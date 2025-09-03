@@ -38,7 +38,7 @@ type Directive struct {
     ApiKey      string        `yaml:"api_key,omitempty"`
     LocalDocs   string        `yaml:"local_docs,omitempty"`
     Servers     []string      `yaml:"servers,omitempty"`
-    Scope       string        `yaml:"scope,omit"`
+    Scope       string        `yaml:"-"`
 }
 
 

@@ -1,12 +1,13 @@
 package main;
 
 import (
+    "os"
     "testing"
     log "github.com/sirupsen/logrus"
 
     "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
+    // "github.com/BlankCanvasStudio/AutoScribe/tests/helpers"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/directives"
-    "github.com/BlankCanvasStudio/AutoScribe/tests/helpers"
 )
 
 func TestSanityCheck(t *testing.T) {
@@ -25,9 +26,30 @@ func TestSanityCheck(t *testing.T) {
 
 
 func TestAddDirective(t *testing.T) {
-    // output_config := "/tmp/sample.config"    
+    configs := []string{"/tmp/testing"}
 
-    cnf := helpers.NewCobraConfig()
+    prompt_file := "/tmp/random"
 
-    directives.CreateCmd.Run(cnf, []string{"testing", "/tmp/testing"})
+    os.WriteFile(prompt_file, []byte{}, 0644)
+
+    err := directives.CreateNewDirective("someDirective", prompt_file, configs)
+    if err != nil {
+        log.Fatalf("failed to create directive: %v", err)
+    }
+
 }
+
+func TestAddDirectiveFailures(t *testing.T) {
+    configs := []string{"/tmp/testing"}
+
+    prompt_file := "/tmp/random"
+
+    os.Remove(prompt_file)
+
+    err := directives.CreateNewDirective("someDirective", prompt_file, configs)
+    if err == nil {
+        log.Fatalf("created directive without valid prompt file")
+    }
+
+}
+

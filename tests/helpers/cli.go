@@ -10,11 +10,12 @@ func NewCobraConfig() *cobra.Command {
 
     ret := &cobra.Command{}
 
-    ret.PersistentFlags().Set("global", "false")
-    ret.PersistentFlags().Set("user",   "false")
-    ret.PersistentFlags().Set("config", "")
-
     cli.AddFlagsToCmd(ret)
+
+    _ = ret.PersistentFlags().Set("global", "false")
+    _ = ret.PersistentFlags().Set("user",   "false")
+    _ = ret.PersistentFlags().Set("local",  "false")
+    _ = ret.PersistentFlags().Set("config", "")    
 
     return ret
 }
