@@ -5,6 +5,7 @@ import (
     "github.com/spf13/cobra"
 
     log "github.com/sirupsen/logrus"
+    "github.com/BlankCanvasStudio/AutoScribe/pkg/types"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/helpers"
 )
@@ -30,7 +31,7 @@ var createCmd = &cobra.Command{
         directive := args[0]
         prompt := args[1]
 
-        newDirective, err := config.NewDirective(directive, prompt)
+        newDirective, err := types.NewDirective(directive, prompt)
         if err != nil {
             log.Fatalf("failed to create new directive %v: %v", directive, err)
         }

@@ -1,11 +1,11 @@
 package types
 
 import (
-	"bufio"
 	"os"
-	"path/filepath"
+	"bufio"
 	"slices"
 	"strings"
+	"path/filepath"
 	// log "github.com/sirupsen/logrus"
 )
 

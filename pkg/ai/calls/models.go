@@ -11,8 +11,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/BlankCanvasStudio/AutoScribe/pkg/config"
-	"github.com/BlankCanvasStudio/AutoScribe/pkg/ai"
+	"github.com/BlankCanvasStudio/AutoScribe/pkg/types"
 )
 
 /*
@@ -42,7 +41,7 @@ import (
  * - Expects the API to return at least one choice.
 
 */
-func Query4_1Nano(directive config.Directive, msg string) (string, error) {
+func Query4_1Nano(directive types.Directive, msg string) (string, error) {
 	// Load API key
 	client := openai.NewClient(
 		option.WithAPIKey(directive.ApiKey),
@@ -102,7 +101,7 @@ func Query4_1Nano(directive config.Directive, msg string) (string, error) {
  * - Assumes the API key and configuration are correctly set up.
 
 */
-func QueryFromDirective(directive config.Directive, args ...any) (string, error) {
+func QueryFromDirective(directive types.Directive, args ...any) (string, error) {
     param_prompt := directive.PromptText
 
     if directive.PromptText == "" {
@@ -119,18 +118,17 @@ func QueryFromDirective(directive config.Directive, args ...any) (string, error)
     log.Debugf("Full gpt prompt:\n%v\n", full_prompt)
 
     switch directive.Model {
-        case ai.GPT_41_Nano:
+        case types.GPT_41_Nano:
             return Query4_1Nano(directive, full_prompt)
         default:
             return "", fmt.Errorf("model %v doesn't exist", directive.Model)
     }
 }
 
-/*
-func QueryFromFile(directive config.Directive, args ...any) (string, error) {
+func QueryFromFile(directive types.Directive, args ...any) (string, error) {
     param_prompt, err := os.ReadFile(directive.Prompt)
     if err != nil {
-        return "", fmt.Errorf("failed to read %v: %v", filename, err)
+        return "", fmt.Errorf("failed to read %v: %v", directive.Prompt, err)
     }
 
     full_prompt := fmt.Sprintf(string(param_prompt), args...)
@@ -138,21 +136,22 @@ func QueryFromFile(directive config.Directive, args ...any) (string, error) {
     log.Debugf("Full gpt prompt:\n%v\n", full_prompt)
 
     switch directive.Model {
-        case ai.GPT_41_Nano:
-            return Query4_1Nano(full_prompt)
+        case types.GPT_41_Nano:
+            return Query4_1Nano(directive, full_prompt)
         default:
-            return "", fmt.Errorf("model %v doesn't exist", model)
+            return "", fmt.Errorf("model %v doesn't exist", directive.Model)
     }
 }
 
 
-func QueryFromText(model ai.Model, promptText string, args ...any) (string, error) {
+/*
+func QueryFromText(model types.Model, promptText string, args ...any) (string, error) {
     full_prompt := fmt.Sprintf(promptText, args...)
 
     log.Debugf("Full gpt prompt:\n%v\n", full_prompt)
 
     switch model {
-        case ai.GPT_41_Nano:
+        case types.GPT_41_Nano:
             return Query4_1Nano(full_prompt)
         default:
             return "", fmt.Errorf("model %v doesn't exist", model)

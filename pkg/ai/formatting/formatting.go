@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/BlankCanvasStudio/AutoScribe/pkg/types"
+	// "github.com/BlankCanvasStudio/AutoScribe/pkg/types"
 	// "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
 )
 
@@ -30,21 +30,22 @@ import (
  * - Reads files from the filesystem.
 
 */
-func CombineFilesForContext(focus []string, ignore []string) (types.ConcatenatedFileContents, error) {
+func CombineFilesForContext(focus []string, ignore []string) (string, error) {
 
     fmt.Printf("Would ignore these files, but that's not implemented yet: %v\n", ignore) 
-	data := ""
 
-	for _, file := range focus {
-		content, err := os.ReadFile(file)
-		if err != nil {
-			return types.ConcatenatedFileContents(""), fmt.Errorf("failed to read file %v: %v", file, err)
-		}
+    data := ""
 
-		data += fmt.Sprintf("File:\n%v\nContents:\n%v\n\n", file, string(content))
-	}
+    for _, file := range focus {
+            content, err := os.ReadFile(file)
+            if err != nil {
+                    return "", fmt.Errorf("failed to read file %v: %v", file, err)
+            }
 
-	return types.ConcatenatedFileContents(data), nil
+            data += fmt.Sprintf("File:\n%v\nContents:\n%v\n\n", file, string(content))
+    }
+
+    return data, nil
 }
 
 

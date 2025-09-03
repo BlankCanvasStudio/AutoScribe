@@ -1,18 +1,18 @@
 package directives;
 
 import (
-    "os"
+    // "os"
     "fmt"
     "strings"
     "github.com/spf13/cobra"
 
     log "github.com/sirupsen/logrus"
 
-    "github.com/BlankCanvasStudio/AutoScribe/pkg/ai"
+    "github.com/BlankCanvasStudio/AutoScribe/pkg/types"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
-    "github.com/BlankCanvasStudio/AutoScribe/pkg/ai/calls"
+    // "github.com/BlankCanvasStudio/AutoScribe/pkg/ai/calls"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/helpers"
-    "github.com/BlankCanvasStudio/AutoScribe/pkg/ai/formatting"
+    // "github.com/BlankCanvasStudio/AutoScribe/pkg/ai/formatting"
 )
 
 
@@ -155,7 +155,7 @@ func CreateCustomCommands() ([]*cobra.Command, error) {
 }
 
 
-func CreateCustomRunHandler(directive config.Directive) (*cobra.Command, error) {
+func CreateCustomRunHandler(directive types.Directive) (*cobra.Command, error) {
     log.Debugf("Executing %v custom run handler", directive.Name)
     desc := fmt.Sprintf("Run the %v directive and save to `%v`", directive.Name, directive.Output)
 
@@ -168,17 +168,17 @@ func CreateCustomRunHandler(directive config.Directive) (*cobra.Command, error) 
         Run: func(cmd *cobra.Command, args []string) {
             err := directive.Execute()
             if err != nil {
-                log.Fatal("failed to execte directive %v: %v", directive.Name, err)
+                log.Fatalf("failed to execte directive %v: %v", directive.Name, err)
             }
         },
     }, nil
 }
 
 
-func CreateCustomInitHandler(directive config.Directive) (*cobra.Command, error) {
+func CreateCustomInitHandler(directive types.Directive) (*cobra.Command, error) {
     log.Debugf("Executing %v custom init handler", directive.Name)
 
-    desc := fmt.Sprintf("Initialize the %v directive saved in global configs into this project", directive.Name, directive.Output)
+    desc := fmt.Sprintf("Initialize the %v directive saved in global configs into this project", directive.Name)
 
     return &cobra.Command{
         Use: "init [files]",
@@ -286,10 +286,10 @@ func CreateCustomInitHandler(directive config.Directive) (*cobra.Command, error)
 }
 
 
-func CreateCustomExportHandler(directive config.Directive) (*cobra.Command, error) {
+func CreateCustomExportHandler(directive types.Directive) (*cobra.Command, error) {
     log.Debugf("Executing %v custom init handler", directive.Name)
 
-    desc := fmt.Sprintf("Export the %v directive to various configs", directive.Name, directive.Output)
+    desc := fmt.Sprintf("Export the %v directive to various configs", directive.Name)
 
     return &cobra.Command{
         Use: "export [files]",
@@ -303,7 +303,7 @@ func CreateCustomExportHandler(directive config.Directive) (*cobra.Command, erro
             // Idk if keeping the focus & ignore is the play
             toAdd.Focus = nil
             toAdd.Ignore = nil
-            toAdd.Model = ai.NoModel
+            toAdd.Model = types.NoModel
             toAdd.ApiKey = ""
             toAdd.Scope = ""
 
@@ -346,7 +346,7 @@ func CreateCustomExportHandler(directive config.Directive) (*cobra.Command, erro
 
 // We can honestly also probably do some fuck shit with introspection & spread operator 
 //      to write this automatically. Too lazy. Copy, paste, find, and replace too EZ
-func CreateCustomKind(directive config.Directive) (*cobra.Command, error) {
+func CreateCustomKind(directive types.Directive) (*cobra.Command, error) {
 
     return &cobra.Command{
         Use: "kind <text argument>",
@@ -364,7 +364,7 @@ func CreateCustomKind(directive config.Directive) (*cobra.Command, error) {
 
             log.Debugf("Saving to config files: %v", configFiles)
 
-            directive.Kind = config.DirectiveType(strings.ToLower(args[0]))
+            directive.Kind = types.DirectiveType(strings.ToLower(args[0]))
 
             err = directive.SanityCheck()
             if err != nil {
@@ -383,7 +383,7 @@ func CreateCustomKind(directive config.Directive) (*cobra.Command, error) {
 
                     d := config.Settings.Directives[directive.Name]
 
-                    d.Kind = config.DirectiveType(strings.ToLower(args[0]))
+                    d.Kind = types.DirectiveType(strings.ToLower(args[0]))
 
                     config.Settings.Directives[directive.Name] = d
 
@@ -400,7 +400,7 @@ func CreateCustomKind(directive config.Directive) (*cobra.Command, error) {
 }
 
 
-func CreateCustomDocs(directive config.Directive) (*cobra.Command, error) {
+func CreateCustomDocs(directive types.Directive) (*cobra.Command, error) {
 
     return &cobra.Command{
         Use: "description <text argument>",
@@ -454,7 +454,7 @@ func CreateCustomDocs(directive config.Directive) (*cobra.Command, error) {
 }
 
 
-func CreateCustomShort(directive config.Directive) (*cobra.Command, error) {
+func CreateCustomShort(directive types.Directive) (*cobra.Command, error) {
 
     return &cobra.Command{
         Use: "description <text argument>",
@@ -508,7 +508,7 @@ func CreateCustomShort(directive config.Directive) (*cobra.Command, error) {
 }
 
 
-func CreateCustomPrompt(directive config.Directive) (*cobra.Command, error) {
+func CreateCustomPrompt(directive types.Directive) (*cobra.Command, error) {
 
     return &cobra.Command{
         Use: "prompt <file path>",
@@ -562,7 +562,7 @@ func CreateCustomPrompt(directive config.Directive) (*cobra.Command, error) {
 }
 
 
-func CreateCustomPromptText(directive config.Directive) (*cobra.Command, error) {
+func CreateCustomPromptText(directive types.Directive) (*cobra.Command, error) {
 
     return &cobra.Command{
         Use: "prompt-text <text argument>",
@@ -616,7 +616,7 @@ func CreateCustomPromptText(directive config.Directive) (*cobra.Command, error) 
 }
 
 
-func CreateCustomFocus(directive config.Directive) (*cobra.Command, error) {
+func CreateCustomFocus(directive types.Directive) (*cobra.Command, error) {
 
     return &cobra.Command{
         Use: "add <text arguments>",
@@ -673,7 +673,7 @@ func CreateCustomFocus(directive config.Directive) (*cobra.Command, error) {
 }
 
 
-func CreateCustomIgnore(directive config.Directive) (*cobra.Command, error) {
+func CreateCustomIgnore(directive types.Directive) (*cobra.Command, error) {
 
     return &cobra.Command{
         Use: "ignore <text arguments>",
@@ -730,7 +730,7 @@ func CreateCustomIgnore(directive config.Directive) (*cobra.Command, error) {
 }
 
 
-func CreateCustomModel(directive config.Directive) (*cobra.Command, error) {
+func CreateCustomModel(directive types.Directive) (*cobra.Command, error) {
 
     return &cobra.Command{
         Use: "model <text argument>",
@@ -748,7 +748,7 @@ func CreateCustomModel(directive config.Directive) (*cobra.Command, error) {
 
             log.Debugf("Saving to config files: %v", configFiles)
 
-            directive.Model = ai.Model(strings.ToLower(args[0]))
+            directive.Model = types.Model(strings.ToLower(args[0]))
 
             err = directive.SanityCheck()
             if err != nil {
@@ -767,7 +767,7 @@ func CreateCustomModel(directive config.Directive) (*cobra.Command, error) {
 
                 d := config.Settings.Directives[directive.Name]
 
-                d.Model = ai.Model(strings.ToLower(args[0]))
+                d.Model = types.Model(strings.ToLower(args[0]))
 
                 config.Settings.Directives[directive.Name] = d
 
@@ -783,7 +783,7 @@ func CreateCustomModel(directive config.Directive) (*cobra.Command, error) {
     }, nil
 }
 
-func CreateCustomOutput(directive config.Directive) (*cobra.Command, error) {
+func CreateCustomOutput(directive types.Directive) (*cobra.Command, error) {
 
     return &cobra.Command{
         Use: "output <text argument>",
@@ -836,7 +836,7 @@ func CreateCustomOutput(directive config.Directive) (*cobra.Command, error) {
     }, nil
 }
 
-func CreateCustomApiKey(directive config.Directive) (*cobra.Command, error) {
+func CreateCustomApiKey(directive types.Directive) (*cobra.Command, error) {
 
     return &cobra.Command{
         Use: "apikey <text argument>",
@@ -889,7 +889,7 @@ func CreateCustomApiKey(directive config.Directive) (*cobra.Command, error) {
     }, nil
 }
 
-func CreateCustomLocalDocs(directive config.Directive) (*cobra.Command, error) {
+func CreateCustomLocalDocs(directive types.Directive) (*cobra.Command, error) {
 
     return &cobra.Command{
         Use: "local-docs <path>",
@@ -943,7 +943,7 @@ func CreateCustomLocalDocs(directive config.Directive) (*cobra.Command, error) {
 }
 
 
-func CreateCustomServers(directive config.Directive) (*cobra.Command, error) {
+func CreateCustomServers(directive types.Directive) (*cobra.Command, error) {
 
     return &cobra.Command{
         Use: "add <text arguments>",

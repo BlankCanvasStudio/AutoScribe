@@ -1,12 +1,13 @@
 package main;
 
 import (
+    "testing"
     log "github.com/sirupsen/logrus"
 
     "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
 )
 
-func main() {
+func TestSanityCheck(t *testing.T) {
     err := config.LoadConfigFile("./tests/configs/ymls/valid.yml")
     if err != nil {
             log.Fatalf("Failed to load config: %v", err)

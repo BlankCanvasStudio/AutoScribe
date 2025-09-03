@@ -9,6 +9,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/BlankCanvasStudio/AutoScribe/pkg/types"
 	// "github.com/BlankCanvasStudio/AutoScribe/pkg/ai"
 	// "github.com/BlankCanvasStudio/AutoScribe/pkg/types"
 )
@@ -16,7 +17,7 @@ import (
 
 var Settings Config = Config {
     Files: []string{},
-    Directives: make(map[string]Directive),
+    Directives: make(map[string]types.Directive),
 }
 
 
@@ -123,7 +124,7 @@ func VerifyLocalConfigExists() error {
     // check file
     if _, err := os.Stat(ProjectConfigFile); os.IsNotExist(err) {
             if err := os.WriteFile(ProjectConfigFile, []byte{}, 0644); err != nil {
-                return fmt.Errorf("failed to write to file: %v")
+                return fmt.Errorf("failed to write to file: %v", ProjectConfigFile)
             }
     } else if err == nil {
         return nil
@@ -143,7 +144,7 @@ func VerifyUserConfigExists() error {
     // check file
     if _, err := os.Stat(UserConfigFile); os.IsNotExist(err) {
             if err := os.WriteFile(UserConfigFile, []byte{}, 0644); err != nil {
-                return fmt.Errorf("failed to write to file: %v")
+                return fmt.Errorf("failed to write to file: %v", UserConfigFile)
             }
     } else if err == nil {
         return nil
@@ -163,7 +164,7 @@ func VerifyGlobalConfigExists() error {
     // check file
     if _, err := os.Stat(GlobalConfigFile); os.IsNotExist(err) {
             if err := os.WriteFile(GlobalConfigFile, []byte{}, 0644); err != nil {
-                return fmt.Errorf("failed to write to file: %v")
+                return fmt.Errorf("failed to write to file: %v", GlobalConfigFile)
             }
     } else if err != nil {
         return err

@@ -18,12 +18,13 @@ func GetConfigsFromFlags(cmd *cobra.Command) ([]string, error) {
     }
 
     if customScope {
-        log.Debugf("working with custom scope %v", )
 
         configFile, err := cmd.Flags().GetString("config")
         if err != nil {
             log.Fatalf("failed to get config var: %v", err)
         }
+
+        log.Debugf("working with custom scope %v", configFile)
 
         if configFile == "" {
             return nil, fmt.Errorf("config file empty")

@@ -8,7 +8,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/BlankCanvasStudio/AutoScribe/pkg/config"
+	"github.com/BlankCanvasStudio/AutoScribe/pkg/types"
+	// "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
 )
 
 /*
@@ -38,12 +39,14 @@ import (
 
 */
 func FilterForCodeFiles(directory string) ([]string, error) {
-	log.Debugf("Filtering for %v code files in: %v", config.LanguageFileExtension, config.ProjectDirectory)
+	// log.Debugf("Filtering for %v code files in: %v", config.LanguageFileExtension, types.ProjectDirectory)
+	log.Debugf("Filtering for %v code files in: %v", "", types.ProjectDirectory)
 
 	// Collect all the files in question
 	var files []string
 
-	err := filepath.Walk(config.ProjectDirectory, func(path string, info os.FileInfo, err error) error {
+        /*
+	err := filepath.Walk(types.ProjectDirectory, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -64,11 +67,13 @@ func FilterForCodeFiles(directory string) ([]string, error) {
 	})
 
 	if err != nil {
-		return files, fmt.Errorf("Failed to walk %v: %v", config.ProjectDirectory, err)
+		return files, fmt.Errorf("Failed to walk %v: %v", types.ProjectDirectory, err)
 	}
+        */
 
 	if len(files) == 0 {
-		return files, fmt.Errorf("Cannot AutoScribe: language set to `%v` but none found.", config.LanguageFileExtension)
+		// return files, fmt.Errorf("Cannot AutoScribe: language set to `%v` but none found.", config.LanguageFileExtension)
+		return files, fmt.Errorf("Cannot AutoScribe: language set to `%v` but none found.", "")
 	}
 
 	return files, nil
@@ -90,7 +95,7 @@ func FilterForBuildFiles(directory string) ([]string, error) {
 	// Collect all the files in question
 	var files []string
 
-	err := filepath.Walk(config.ProjectDirectory, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(types.ProjectDirectory, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -117,11 +122,11 @@ func FilterForBuildFiles(directory string) ([]string, error) {
 	})
 
 	if err != nil {
-		return files, fmt.Errorf("Failed to walk %v: %v", config.ProjectDirectory, err)
+		return files, fmt.Errorf("Failed to walk %v: %v", types.ProjectDirectory, err)
 	}
 
 	if len(files) == 0 {
-		log.Debug("No build files found in %v", config.ProjectDirectory)
+		log.Debugf("No build files found in %v", types.ProjectDirectory)
 	}
 
 	return files, nil

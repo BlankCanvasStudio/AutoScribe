@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/BlankCanvasStudio/AutoScribe/pkg/config"
 	"github.com/BlankCanvasStudio/AutoScribe/pkg/types"
+	// "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
 )
 
 /*
@@ -69,9 +69,9 @@ func CombineFilesForContext(files []string) (types.ConcatenatedFileContents, err
 
 */
 func FormatCodeFilesForContext() (types.ConcatenatedFileContents, error) {
-	files, err := FilterForCodeFiles(config.ProjectDirectory)
+	files, err := FilterForCodeFiles(types.ProjectDirectory)
 	if err != nil {
-		return types.ConcatenatedFileContents(""), fmt.Errorf("Failed to filter for code files: %v", config.ProjectDirectory, err)
+		return types.ConcatenatedFileContents(""), fmt.Errorf("Failed to filter for code files in %v: %v", types.ProjectDirectory, err)
 	}
 
 	data := ""
@@ -105,9 +105,9 @@ Returns an error if filtering files fails or if reading any individual file fail
 
 */
 func FormatBuildFilesForContext() (types.ConcatenatedFileContents, error) {
-	files, err := FilterForBuildFiles(config.ProjectDirectory)
+	files, err := FilterForBuildFiles(types.ProjectDirectory)
 	if err != nil {
-		return types.ConcatenatedFileContents(""), fmt.Errorf("Failed to filter for code files: %v", config.ProjectDirectory, err)
+		return types.ConcatenatedFileContents(""), fmt.Errorf("Failed to filter for code files in %v: %v", types.ProjectDirectory, err)
 	}
 
 	data := ""

@@ -7,6 +7,8 @@ import (
 
     log "github.com/sirupsen/logrus"
 
+    "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
+    "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/helpers"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/directives"
 )
 
@@ -45,21 +47,24 @@ var versionCmd = &cobra.Command{
     },
 }
 
-var versionCmd = &cobra.Command{
+var runCmd = &cobra.Command{
     Use:   "run",
     Short: "Run all the directives initialized in this repository",
     Long:  `Run all the directives initialized in this repository`,
     Run: func(cmd *cobra.Command, args []string) {
         configScopes, err := helpers.GetConfigsFromFlags(cmd)
+        if err != nil {
+            log.Fatalf("failed to get configs from flags: %v", err)
+        }
 
-        for name, directive := config.Settings.Directives {
+        for name, directive := range config.Settings.Directives {
             if !slices.Contains(configScopes, directive.Scope) {
                 continue
             }
 
             err := directive.Execute()
             if err != nil {
-                log.Fatal("failed to execte directive %v: %v", directive.Name, err)
+                log.Fatalf("failed to execte directive %v: %v", name, err)
             }
         }
     },
@@ -74,6 +79,7 @@ func Execute() {
 
     rootCmd.PersistentFlags().StringVarP(&CfgFile, "config", "c", "", "Specify config file to use")
 
+    rootCmd.AddCommand(runCmd)
     rootCmd.AddCommand(versionCmd)
     rootCmd.AddCommand(directives.Cmd)
 
