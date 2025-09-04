@@ -2,6 +2,7 @@ package main;
 
 import (
     "os"
+    "reflect"
     "testing"
     log "github.com/sirupsen/logrus"
 
@@ -135,4 +136,71 @@ func TestExportHandler(t *testing.T) {
 
     config.PopLoadedConfig()
 }
+
+func TestUpdateDirectiveField(t *testing.T) {
+    // Create sample config file in local directory
+    name := "someDirective"
+    prompt_file := "/tmp/random"
+    saveToConfig := "/tmp/testing"
+    parameter := "Kind"
+    newValue := "a testing string"
+    configs := []string{ saveToConfig }
+
+
+    os.WriteFile(prompt_file, []byte{}, 0644)
+
+    // Write the random directive to that config
+    err := directives.CreateNewDirective(name, prompt_file, configs)
+    if err != nil {
+        log.Fatalf("Failed to create directive: %v", err)
+    }
+
+    err = config.LoadConfigFile(configs[0])
+    if err != nil {
+        log.Fatalf("Failed to load %v: %v", configs[0], err)
+    }
+
+    directive, ok := config.Settings.Directives[name]
+    if !ok {
+        log.Fatalf("directive %v didn't get added properly to runtime", name)
+    }
+
+    // Initialize Directive we just saved into project scope
+    err = directives.UpdateDirectiveFieldInConfigs(directive, parameter, newValue, configs)
+    if err != nil {
+        log.Fatalf("Failed to update 'Kind' in directive: %v", err)
+    }
+
+    // Load the default scope
+    config.PushLoadedConfig()
+    {
+
+        // Load our updated config file
+        err = config.LoadConfigFile(saveToConfig)
+        if err != nil {
+            log.Fatalf("Failed to load configs: %v", err)
+        }
+
+        // Get directive from loaded file
+        ld, ok := config.Settings.Directives[name];
+        if !ok {
+            log.Fatalf("failed to load %v from %v", name, saveToConfig)
+        }
+
+        v := reflect.ValueOf(ld)
+        f := v.FieldByName(parameter)
+
+        if f.String() != newValue {
+            log.Fatalf("Loaded %v was %v, not %v", parameter, v.String(), newValue)
+        }
+    }
+    config.PopLoadedConfig()
+
+
+    os.Remove(prompt_file)
+    os.Remove(saveToConfig)
+
+    config.PopLoadedConfig()
+}
+
 

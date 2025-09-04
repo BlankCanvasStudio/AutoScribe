@@ -89,6 +89,32 @@ func (d *Directive) SanityCheck() error {
     return nil
 }
 
+func (d *Directive) CheckForSave() error {
+    if d.Name == "" {
+        return fmt.Errorf("no directive name specified for: %+v", d)
+    }
+
+    if d.Kind == NoneDirective {
+        return fmt.Errorf("no directive kind specified for %v", d.Name)
+    }
+
+    if d.Prompt == "" && d.PromptText == "" {
+        return fmt.Errorf("no prompt file or text specified for directive %v", d.Name)
+    }
+
+    if d.Prompt != "" {
+        _, err := os.Stat(d.Prompt); 
+        if err != nil {
+            return fmt.Errorf("prompt file %v doesn't exist", d.Prompt)
+        }    
+    }
+
+    return nil
+}
+
+
+
+
 func (d *Directive) PrettyPrint(prefix string) {
     fmt.Printf("%vDirective: %v\n", prefix, d.Name)
     fmt.Printf("%v  Kind: %v\n", prefix, d.Kind)

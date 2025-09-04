@@ -4,14 +4,15 @@ import (
     // "os"
     "fmt"
     "strings"
-    "github.com/spf13/cobra"
+    "reflect"
+    // "github.com/spf13/cobra"
 
     log "github.com/sirupsen/logrus"
 
     "github.com/BlankCanvasStudio/AutoScribe/pkg/types"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
     // "github.com/BlankCanvasStudio/AutoScribe/pkg/ai/calls"
-    "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/helpers"
+    // "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/helpers"
     // "github.com/BlankCanvasStudio/AutoScribe/pkg/ai/formatting"
 )
 
@@ -133,658 +134,181 @@ func ExportCustomDirective(directive types.Directive, configFiles []string) erro
     return nil
 }
 
-// We can honestly also probably do some fuck shit with introspection & spread operator 
-//      to write this automatically. Too lazy. Copy, paste, find, and replace too EZ
-func CreateCustomKind(directive types.Directive) (*cobra.Command, error) {
 
-    return &cobra.Command{
-        Use: "kind <text argument>",
-        Short: "set the directive kind (file base or recursion base)",
-        Long:  "set the directive kind (file base or recursion base)",
-        Args:  cobra.ExactArgs(1),
+func SetField(obj any, name string, value any) error {
+	v := reflect.ValueOf(obj)
+	if v.Kind() != reflect.Pointer || v.IsNil() {
+		return fmt.Errorf("obj must be a non-nil pointer to a struct")
+	}
+	v = v.Elem()
+	if v.Kind() != reflect.Struct {
+		return fmt.Errorf("obj must point to a struct")
+	}
 
-        Run: func(cmd *cobra.Command, args []string) {
-            log.Debugf("%v kind triggered", directive)
+	f := v.FieldByName(name)
+	if !f.IsValid() {
+		return fmt.Errorf("no such field: %s", name)
+	}
+	if !f.CanSet() {
+		return fmt.Errorf("cannot set field %s (unexported?)", name)
+	}
 
-            configFiles, err := helpers.GetConfigsFromFlags(cmd)
-            if err != nil {
-                log.Fatalf("failed to get the correct config files: %v", err)
-            }
+	val := reflect.ValueOf(value)
 
-            log.Debugf("Saving to config files: %v", configFiles)
+	// Handle pointer fields by accepting both T and *T
+	if f.Kind() == reflect.Pointer {
+		ft := f.Type().Elem()
+		if val.IsValid() && val.Type().AssignableTo(ft) {
+			ptr := reflect.New(ft)
+			ptr.Elem().Set(val)
+			f.Set(ptr)
+			return nil
+		}
+		if val.IsValid() && val.Type().AssignableTo(f.Type()) {
+			f.Set(val)
+			return nil
+		}
+	}
 
-            directive.Kind = types.DirectiveType(strings.ToLower(args[0]))
+	// Direct assign or convertible types (e.g., int->int64, float64->int, etc.)
+	if val.IsValid() && val.Type().AssignableTo(f.Type()) {
+		f.Set(val)
+		return nil
+	}
+	if val.IsValid() && val.Type().ConvertibleTo(f.Type()) {
+		f.Set(val.Convert(f.Type()))
+		return nil
+	}
 
-            err = directive.SanityCheck()
-            if err != nil {
-                log.Fatalf("can't update directive: %v", err)
-            }
-
-            config.Settings.Directives[directive.Name] = directive
-
-
-            for _, configFile := range configFiles {
-                log.Debugf("Updating settings in: %v", configFile)
-                config.PushLoadedConfig()
-                {
-
-                    config.LoadConfigFile(configFile)
-
-                    d := config.Settings.Directives[directive.Name]
-
-                    d.Kind = types.DirectiveType(strings.ToLower(args[0]))
-
-                    config.Settings.Directives[directive.Name] = d
-
-                    err := config.SaveConfigFile(configFile, config.Settings)
-                    if err != nil {
-                        log.Fatalf("Failed to create new directive: %v", err)
-                    }
-                }
-                config.PopLoadedConfig()
-            }
-        },
-
-    }, nil
+	return fmt.Errorf("cannot assign %s to field %s of type %s", val.Type(), name, f.Type())
 }
 
 
-func CreateCustomDocs(directive types.Directive) (*cobra.Command, error) {
+func SetArray(obj any, name string, value any) error {
+	v := reflect.ValueOf(obj)
+	if v.Kind() != reflect.Pointer || v.IsNil() {
+		return fmt.Errorf("obj must be a non-nil pointer to a struct")
+	}
+	v = v.Elem()
+	if v.Kind() != reflect.Struct {
+		return fmt.Errorf("obj must point to a struct")
+	}
 
-    return &cobra.Command{
-        Use: "description <text argument>",
-        Short: "set the full description of a custom directive",
-        Long:  "set the full description of a custom directive",
-        Args:  cobra.ExactArgs(1),
+	f := v.FieldByName(name)
+	if !f.IsValid() {
+		return fmt.Errorf("no such field: %s", name)
+	}
+	if !f.CanSet() {
+		return fmt.Errorf("cannot set field %s (unexported?)", name)
+	}
 
-        Run: func(cmd *cobra.Command, args []string) {
-            log.Debugf("%v docs triggered", directive)
+	val := reflect.ValueOf(value)
 
-            configFiles, err := helpers.GetConfigsFromFlags(cmd)
-            if err != nil {
-                log.Fatalf("failed to get the correct config files: %v", err)
-            }
+        if f.Kind() != reflect.Array && f.Kind() != reflect.Slice {
+            return fmt.Errorf("Member variable %v is not an array; is a: %v", name, f.String())
+        }
 
-            log.Debugf("Saving to config files: %v", configFiles)
+	// Handle pointer fields by accepting both T and *T
+	if f.Kind() == reflect.Array || f.Kind() == reflect.Slice {
+            f.Set(reflect.Append(f, val))
+            return nil
+	}
 
-            directive.Description = args[0]
-
-            err = directive.SanityCheck()
-            if err != nil {
-                log.Fatalf("can't update directive: %v", err)
-            }
-
-            config.Settings.Directives[directive.Name] = directive
-
-            savedConfig := config.Settings
-
-            for _, configFile := range configFiles {
-                log.Debugf("Updating settings in: %v", configFile)
-                config.Settings = config.NewConfig()
-
-                config.LoadConfigFile(configFile)
-
-                d := config.Settings.Directives[directive.Name]
-
-                d.Description = args[0]
-
-                config.Settings.Directives[directive.Name] = d
-
-                err := config.SaveConfigFile(configFile, config.Settings)
-                if err != nil {
-                    log.Fatalf("Failed to create new directive: %v", err)
-                }
-            }
-
-            config.Settings = savedConfig
-        },
-
-    }, nil
+	return fmt.Errorf("cannot assign %s to field %s of type %s", val.Type(), name, f.Type())
 }
 
 
-func CreateCustomShort(directive types.Directive) (*cobra.Command, error) {
+func UpdateDirectiveFieldInConfigs(directive types.Directive, field string, arg string, configFiles []string) error {
+    log.Debugf("Saving to config files: %v", configFiles)
 
-    return &cobra.Command{
-        Use: "description <text argument>",
-        Short: "set the full description of a custom directive",
-        Long:  "set the full description of a custom directive",
-        Args:  cobra.ExactArgs(1),
+    d := config.Settings.Directives[directive.Name]
 
-        Run: func(cmd *cobra.Command, args []string) {
-            log.Debugf("%v docs triggered", directive)
+    err := SetField(&d, field, types.DirectiveType(strings.ToLower(arg)))
+    if err != nil {
+        return fmt.Errorf("Failed to set field %v on directive %v: %v", field, directive.Name, err)
+    }
 
-            configFiles, err := helpers.GetConfigsFromFlags(cmd)
+    err = d.CheckForSave()
+    if err != nil {
+        return fmt.Errorf("can't update directive %v: %v", field, err)
+    }
+
+    config.Settings.Directives[directive.Name] = d
+
+    for _, configFile := range configFiles {
+        log.Debugf("Updating settings in: %v", configFile)
+        config.PushLoadedConfig()
+        {
+
+            config.LoadConfigFile(configFile)
+
+            d := config.Settings.Directives[directive.Name]
+
+            err := SetField(&d, field, types.DirectiveType(strings.ToLower(arg)))
             if err != nil {
-                log.Fatalf("failed to get the correct config files: %v", err)
+                return fmt.Errorf("Failed to set field %v on directive %v: %v", field, directive.Name, err)
             }
 
-            log.Debugf("Saving to config files: %v", configFiles)
+            config.Settings.Directives[directive.Name] = d
 
-            directive.Short = args[0]
-
-            err = directive.SanityCheck()
+            err = config.SaveConfigFile(configFile, config.Settings)
             if err != nil {
-                log.Fatalf("can't update directive: %v", err)
+                return fmt.Errorf("Failed to create new directive: %v", err)
             }
+        }
+        config.PopLoadedConfig()
+    }
 
-            config.Settings.Directives[directive.Name] = directive
-
-            savedConfig := config.Settings
-
-            for _, configFile := range configFiles {
-                log.Debugf("Updating settings in: %v", configFile)
-                config.Settings = config.NewConfig()
-
-                config.LoadConfigFile(configFile)
-
-                d := config.Settings.Directives[directive.Name]
-
-                d.Short = args[0]
-
-                config.Settings.Directives[directive.Name] = d
-
-                err := config.SaveConfigFile(configFile, config.Settings)
-                if err != nil {
-                    log.Fatalf("Failed to create new directive: %v", err)
-                }
-            }
-
-            config.Settings = savedConfig
-        },
-
-    }, nil
+    return nil
 }
 
 
-func CreateCustomPrompt(directive types.Directive) (*cobra.Command, error) {
+func UpdateDirectiveArrayInConfigs(directive types.Directive, field string, args []string, configFiles []string) error {
+    log.Debugf("Saving to config files: %v", configFiles)
 
-    return &cobra.Command{
-        Use: "prompt <file path>",
-        Short: "set the prompt file for a directive",
-        Long:  "set the prompt file for a directive",
-        Args:  cobra.ExactArgs(1),
+    d := config.Settings.Directives[directive.Name]
 
-        Run: func(cmd *cobra.Command, args []string) {
-            log.Debugf("%v docs triggered", directive)
+    for _, arg := range args {
+        err := SetArray(&d, field, arg)
+        if err != nil {
+            return fmt.Errorf("failed to update %v array with %v: %v", field, arg, err)
+        }
+    }
 
-            configFiles, err := helpers.GetConfigsFromFlags(cmd)
+    err := directive.CheckForSave()
+    if err != nil {
+        return fmt.Errorf("can't update directive: %v", err)
+    }
+
+    config.Settings.Directives[directive.Name] = directive
+
+    savedConfig := config.Settings
+
+    for _, configFile := range configFiles {
+        log.Debugf("Updating settings in: %v", configFile)
+        config.Settings = config.NewConfig()
+
+        config.LoadConfigFile(configFile)
+
+        d := config.Settings.Directives[directive.Name]
+
+        for _, arg := range args {
+            err := SetArray(&d, field, arg)
             if err != nil {
-                log.Fatalf("failed to get the correct config files: %v", err)
+                return fmt.Errorf("failed to update %v array with %v: %v", field, arg, err)
             }
+        }
 
-            log.Debugf("Saving to config files: %v", configFiles)
+        config.Settings.Directives[directive.Name] = d
 
-            directive.Prompt = args[0]
+        err := config.SaveConfigFile(configFile, config.Settings)
+        if err != nil {
+            return fmt.Errorf("Failed to create new directive: %v", err)
+        }
+    }
 
-            err = directive.SanityCheck()
-            if err != nil {
-                log.Fatalf("can't update directive: %v", err)
-            }
+    config.Settings = savedConfig
 
-            config.Settings.Directives[directive.Name] = directive
-
-            savedConfig := config.Settings
-
-            for _, configFile := range configFiles {
-                log.Debugf("Updating settings in: %v", configFile)
-                config.Settings = config.NewConfig()
-
-                config.LoadConfigFile(configFile)
-
-                d := config.Settings.Directives[directive.Name]
-
-                d.Prompt = args[0]
-
-                config.Settings.Directives[directive.Name] = d
-
-                err := config.SaveConfigFile(configFile, config.Settings)
-                if err != nil {
-                    log.Fatalf("Failed to create new directive: %v", err)
-                }
-            }
-
-            config.Settings = savedConfig
-        },
-
-    }, nil
-}
-
-
-func CreateCustomPromptText(directive types.Directive) (*cobra.Command, error) {
-
-    return &cobra.Command{
-        Use: "prompt-text <text argument>",
-        Short: "set the prompt text for a directive (override the prompt file)",
-        Long:  "set the prompt text for a directive (override the prompt file)",
-        Args:  cobra.ExactArgs(1),
-
-        Run: func(cmd *cobra.Command, args []string) {
-            log.Debugf("%v docs triggered", directive)
-
-            configFiles, err := helpers.GetConfigsFromFlags(cmd)
-            if err != nil {
-                log.Fatalf("failed to get the correct config files: %v", err)
-            }
-
-            log.Debugf("Saving to config files: %v", configFiles)
-
-            directive.PromptText = args[0]
-
-            err = directive.SanityCheck()
-            if err != nil {
-                log.Fatalf("can't update directive: %v", err)
-            }
-
-            config.Settings.Directives[directive.Name] = directive
-
-            savedConfig := config.Settings
-
-            for _, configFile := range configFiles {
-                log.Debugf("Updating settings in: %v", configFile)
-                config.Settings = config.NewConfig()
-
-                config.LoadConfigFile(configFile)
-
-                d := config.Settings.Directives[directive.Name]
-
-                d.PromptText = args[0]
-
-                config.Settings.Directives[directive.Name] = d
-
-                err := config.SaveConfigFile(configFile, config.Settings)
-                if err != nil {
-                    log.Fatalf("Failed to create new directive: %v", err)
-                }
-            }
-
-            config.Settings = savedConfig
-        },
-
-    }, nil
-}
-
-
-func CreateCustomFocus(directive types.Directive) (*cobra.Command, error) {
-
-    return &cobra.Command{
-        Use: "add <text arguments>",
-        Short: "add functions or files for autoscibe to add documentation to / focus on",
-        Long:  "add functions or files for autoscibe to add documentation to / focus on",
-
-        Run: func(cmd *cobra.Command, args []string) {
-            log.Debugf("%v files triggered", directive)
-
-            configFiles, err := helpers.GetConfigsFromFlags(cmd)
-            if err != nil {
-                log.Fatalf("failed to get the correct config files: %v", err)
-            }
-
-            log.Debugf("Saving to config files: %v", configFiles)
-
-            for _, file := range args {
-                directive.Focus = append(directive.Focus, file)
-            }
-
-            err = directive.SanityCheck()
-            if err != nil {
-                log.Fatalf("can't update directive: %v", err)
-            }
-
-            config.Settings.Directives[directive.Name] = directive
-
-            savedConfig := config.Settings
-
-            for _, configFile := range configFiles {
-                log.Debugf("Updating settings in: %v", configFile)
-                config.Settings = config.NewConfig()
-
-                config.LoadConfigFile(configFile)
-
-                d := config.Settings.Directives[directive.Name]
-
-                for _, file := range args {
-                    directive.Focus = append(directive.Focus, file)
-                }
-
-                config.Settings.Directives[directive.Name] = d
-
-                err := config.SaveConfigFile(configFile, config.Settings)
-                if err != nil {
-                    log.Fatalf("Failed to create new directive: %v", err)
-                }
-            }
-
-            config.Settings = savedConfig
-        },
-
-    }, nil
-}
-
-
-func CreateCustomIgnore(directive types.Directive) (*cobra.Command, error) {
-
-    return &cobra.Command{
-        Use: "ignore <text arguments>",
-        Short: "ignore functions or files",
-        Long:  "ignore functions or files",
-
-        Run: func(cmd *cobra.Command, args []string) {
-            log.Debugf("%v files triggered", directive)
-
-            configFiles, err := helpers.GetConfigsFromFlags(cmd)
-            if err != nil {
-                log.Fatalf("failed to get the correct config files: %v", err)
-            }
-
-            log.Debugf("Saving to config files: %v", configFiles)
-
-            for _, file := range args {
-                directive.Ignore = append(directive.Ignore, file)
-            }
-
-            err = directive.SanityCheck()
-            if err != nil {
-                log.Fatalf("can't update directive: %v", err)
-            }
-
-            config.Settings.Directives[directive.Name] = directive
-
-            savedConfig := config.Settings
-
-            for _, configFile := range configFiles {
-                log.Debugf("Updating settings in: %v", configFile)
-                config.Settings = config.NewConfig()
-
-                config.LoadConfigFile(configFile)
-
-                d := config.Settings.Directives[directive.Name]
-
-                for _, file := range args {
-                    directive.Ignore = append(directive.Ignore, file)
-                }
-
-                config.Settings.Directives[directive.Name] = d
-
-                err := config.SaveConfigFile(configFile, config.Settings)
-                if err != nil {
-                    log.Fatalf("Failed to create new directive: %v", err)
-                }
-            }
-
-            config.Settings = savedConfig
-        },
-
-    }, nil
-}
-
-
-func CreateCustomModel(directive types.Directive) (*cobra.Command, error) {
-
-    return &cobra.Command{
-        Use: "model <text argument>",
-        Short: "set the model for a particular directive ",
-        Long:  "set the model for a particular directive ",
-        Args:  cobra.ExactArgs(1),
-
-        Run: func(cmd *cobra.Command, args []string) {
-            log.Debugf("%v docs triggered", directive)
-
-            configFiles, err := helpers.GetConfigsFromFlags(cmd)
-            if err != nil {
-                log.Fatalf("failed to get the correct config files: %v", err)
-            }
-
-            log.Debugf("Saving to config files: %v", configFiles)
-
-            directive.Model = types.Model(strings.ToLower(args[0]))
-
-            err = directive.SanityCheck()
-            if err != nil {
-                log.Fatalf("can't update directive: %v", err)
-            }
-
-            config.Settings.Directives[directive.Name] = directive
-
-            savedConfig := config.Settings
-
-            for _, configFile := range configFiles {
-                log.Debugf("Updating settings in: %v", configFile)
-                config.Settings = config.NewConfig()
-
-                config.LoadConfigFile(configFile)
-
-                d := config.Settings.Directives[directive.Name]
-
-                d.Model = types.Model(strings.ToLower(args[0]))
-
-                config.Settings.Directives[directive.Name] = d
-
-                err := config.SaveConfigFile(configFile, config.Settings)
-                if err != nil {
-                    log.Fatalf("Failed to create new directive: %v", err)
-                }
-            }
-
-            config.Settings = savedConfig
-        },
-
-    }, nil
-}
-
-func CreateCustomOutput(directive types.Directive) (*cobra.Command, error) {
-
-    return &cobra.Command{
-        Use: "output <text argument>",
-        Short: "set the output file for a directive's result",
-        Long:  "set the output file for a directive's result",
-        Args:  cobra.ExactArgs(1),
-
-        Run: func(cmd *cobra.Command, args []string) {
-            log.Debugf("%v docs triggered", directive)
-
-            configFiles, err := helpers.GetConfigsFromFlags(cmd)
-            if err != nil {
-                log.Fatalf("failed to get the correct config files: %v", err)
-            }
-
-            log.Debugf("Saving to config files: %v", configFiles)
-
-            directive.Output = args[0]
-
-            err = directive.SanityCheck()
-            if err != nil {
-                log.Fatalf("can't update directive: %v", err)
-            }
-
-            config.Settings.Directives[directive.Name] = directive
-
-            savedConfig := config.Settings
-
-            for _, configFile := range configFiles {
-                log.Debugf("Updating settings in: %v", configFile)
-                config.Settings = config.NewConfig()
-
-                config.LoadConfigFile(configFile)
-
-                d := config.Settings.Directives[directive.Name]
-
-                d.Output = args[0]
-
-                config.Settings.Directives[directive.Name] = d
-
-                err := config.SaveConfigFile(configFile, config.Settings)
-                if err != nil {
-                    log.Fatalf("Failed to create new directive: %v", err)
-                }
-            }
-
-            config.Settings = savedConfig
-        },
-
-    }, nil
-}
-
-func CreateCustomApiKey(directive types.Directive) (*cobra.Command, error) {
-
-    return &cobra.Command{
-        Use: "apikey <text argument>",
-        Short: "set a directive's api key",
-        Long:  "set a directive's api key",
-        Args:  cobra.ExactArgs(1),
-
-        Run: func(cmd *cobra.Command, args []string) {
-            log.Debugf("%v docs triggered", directive)
-
-            configFiles, err := helpers.GetConfigsFromFlags(cmd)
-            if err != nil {
-                log.Fatalf("failed to get the correct config files: %v", err)
-            }
-
-            log.Debugf("Saving to config files: %v", configFiles)
-
-            directive.ApiKey = args[0]
-
-            err = directive.SanityCheck()
-            if err != nil {
-                log.Fatalf("can't update directive: %v", err)
-            }
-
-            config.Settings.Directives[directive.Name] = directive
-
-            savedConfig := config.Settings
-
-            for _, configFile := range configFiles {
-                log.Debugf("Updating settings in: %v", configFile)
-                config.Settings = config.NewConfig()
-
-                config.LoadConfigFile(configFile)
-
-                d := config.Settings.Directives[directive.Name]
-
-                d.ApiKey = args[0]
-
-                config.Settings.Directives[directive.Name] = d
-
-                err := config.SaveConfigFile(configFile, config.Settings)
-                if err != nil {
-                    log.Fatalf("Failed to create new directive: %v", err)
-                }
-            }
-
-            config.Settings = savedConfig
-        },
-
-    }, nil
-}
-
-func CreateCustomLocalDocs(directive types.Directive) (*cobra.Command, error) {
-
-    return &cobra.Command{
-        Use: "local-docs <path>",
-        Short: "set where a directive can locally source documentation not written in files",
-        Long:  "set where a directive can locally source documentation not written in files",
-        Args:  cobra.ExactArgs(1),
-
-        Run: func(cmd *cobra.Command, args []string) {
-            log.Debugf("%v docs triggered", directive)
-
-            configFiles, err := helpers.GetConfigsFromFlags(cmd)
-            if err != nil {
-                log.Fatalf("failed to get the correct config files: %v", err)
-            }
-
-            log.Debugf("Saving to config files: %v", configFiles)
-
-            directive.LocalDocs = args[0]
-
-            err = directive.SanityCheck()
-            if err != nil {
-                log.Fatalf("can't update directive: %v", err)
-            }
-
-            config.Settings.Directives[directive.Name] = directive
-
-            savedConfig := config.Settings
-
-            for _, configFile := range configFiles {
-                log.Debugf("Updating settings in: %v", configFile)
-                config.Settings = config.NewConfig()
-
-                config.LoadConfigFile(configFile)
-
-                d := config.Settings.Directives[directive.Name]
-
-                d.LocalDocs = args[0]
-
-                config.Settings.Directives[directive.Name] = d
-
-                err := config.SaveConfigFile(configFile, config.Settings)
-                if err != nil {
-                    log.Fatalf("Failed to create new directive: %v", err)
-                }
-            }
-
-            config.Settings = savedConfig
-        },
-
-    }, nil
-}
-
-
-func CreateCustomServers(directive types.Directive) (*cobra.Command, error) {
-
-    return &cobra.Command{
-        Use: "add <text arguments>",
-        Short: "set where a directive sources documentation from if it can't be found locally (godocs is implicit)",
-        Long:  "set where a directive sources documentation from if it can't be found locally (godocs is implicit)",
-
-        Run: func(cmd *cobra.Command, args []string) {
-            log.Debugf("%v files triggered", directive)
-
-            configFiles, err := helpers.GetConfigsFromFlags(cmd)
-            if err != nil {
-                log.Fatalf("failed to get the correct config files: %v", err)
-            }
-
-            log.Debugf("Saving to config files: %v", configFiles)
-
-            for _, file := range args {
-                directive.Servers = append(directive.Focus, file)
-            }
-
-            err = directive.SanityCheck()
-            if err != nil {
-                log.Fatalf("can't update directive: %v", err)
-            }
-
-            config.Settings.Directives[directive.Name] = directive
-
-            savedConfig := config.Settings
-
-            for _, configFile := range configFiles {
-                log.Debugf("Updating settings in: %v", configFile)
-                config.Settings = config.NewConfig()
-
-                config.LoadConfigFile(configFile)
-
-                d := config.Settings.Directives[directive.Name]
-
-                for _, file := range args {
-                    directive.Servers = append(directive.Focus, file)
-                }
-
-                config.Settings.Directives[directive.Name] = d
-
-                err := config.SaveConfigFile(configFile, config.Settings)
-                if err != nil {
-                    log.Fatalf("Failed to create new directive: %v", err)
-                }
-            }
-
-            config.Settings = savedConfig
-        },
-
-    }, nil
+    return nil
 }
 

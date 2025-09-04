@@ -67,9 +67,6 @@ func CreateCustomCommands() ([]*cobra.Command, error) {
 
         log.Debugf("Creating custom handler for %v", name)
 
-        // If I ever have to add to this, make it a for loop with function pointers plz
-        //      vim makes copy paste too easy and I'm trying to move fast
-
         Run, err := CreateCustomRunHandler(directive)
         if err != nil {
             return nil, fmt.Errorf("failed to create custom kind handler for %v: %v", name, err)
@@ -91,91 +88,27 @@ func CreateCustomCommands() ([]*cobra.Command, error) {
         createCmd.AddCommand(Export)
 
 
-        Kind, err := CreateCustomKind(directive)
+        // If I ever have to add to this, make it a for loop with function pointers plz
+        //      vim makes copy paste too easy and I'm trying to move fast
+        // UPDATE: I did it
+        stringCmds, err := AddFieldUpdates(directive)
         if err != nil {
-            return nil, fmt.Errorf("failed to create custom kind handler for %v: %v", name, err)
+            log.Fatalf("failed to add a string field to %v: %v", directive.Name, err)
         }
-        createCmd.AddCommand(Kind)
+
+        for _, stringCmd := range stringCmds {
+            createCmd.AddCommand(stringCmd)
+        }
 
 
-        Docs, err := CreateCustomDocs(directive)
+        arrayCmds, err := AddArrayUpdates(directive)
         if err != nil {
-            return nil, fmt.Errorf("failed to create custom docs handler for %v: %v", name, err)
+            log.Fatalf("failed to add a string field to %v: %v", directive.Name, err)
         }
-        createCmd.AddCommand(Docs)
 
-
-        Short, err := CreateCustomShort(directive)
-        if err != nil {
-            return nil, fmt.Errorf("failed to create custom short handler for %v: %v", name, err)
+        for _, arrayCmd := range arrayCmds {
+            createCmd.AddCommand(arrayCmd)
         }
-        createCmd.AddCommand(Short)
-
-
-        Prompt, err := CreateCustomPrompt(directive)
-        if err != nil {
-            return nil, fmt.Errorf("failed to create custom prompt handler for %v: %v", name, err)
-        }
-        createCmd.AddCommand(Prompt)
-
-
-        PromptText, err := CreateCustomPrompt(directive)
-        if err != nil {
-            return nil, fmt.Errorf("failed to create custom prompt-text handler for %v: %v", name, err)
-        }
-        createCmd.AddCommand(PromptText)
-
-
-        Focus, err := CreateCustomFocus(directive)
-        if err != nil {
-            return nil, fmt.Errorf("failed to create custom focus handler for %v: %v", name, err)
-        }
-        createCmd.AddCommand(Focus)
-
-
-        Ignore, err := CreateCustomIgnore(directive)
-        if err != nil {
-            return nil, fmt.Errorf("failed to create custom ignore handler for %v: %v", name, err)
-        }
-        createCmd.AddCommand(Ignore)
-
-
-        Model, err := CreateCustomModel(directive)
-        if err != nil {
-            return nil, fmt.Errorf("failed to create custom model handler for %v: %v", name, err)
-        }
-        createCmd.AddCommand(Model)
-
-
-        Output, err := CreateCustomModel(directive)
-        if err != nil {
-            return nil, fmt.Errorf("failed to create custom output handler for %v: %v", name, err)
-        }
-        createCmd.AddCommand(Output)
-
-
-        ApiKey, err := CreateCustomModel(directive)
-        if err != nil {
-            return nil, fmt.Errorf("failed to create custom api key handler for %v: %v", name, err)
-        }
-        createCmd.AddCommand(ApiKey)
-
-
-        LocalDocs, err := CreateCustomModel(directive)
-        if err != nil {
-            return nil, fmt.Errorf("failed to create custom local-docs handler for %v: %v", name, err)
-        }
-        createCmd.AddCommand(LocalDocs)
-
-
-        Servers, err := CreateCustomModel(directive)
-        if err != nil {
-            return nil, fmt.Errorf("failed to create custom servers handler for %v: %v", name, err)
-        }
-        createCmd.AddCommand(Servers)
-
-
-
 
         customCmds = append(customCmds,  createCmd)
 
@@ -284,6 +217,165 @@ func CreateCustomExportHandler(directive types.Directive) (*cobra.Command, error
 
 
 
+type Field struct {
+    Name  string
+    Use   string
+    Short string
+    Long  string
+}
+
+var StringFieldsToUpdate = []Field{
+    Field{
+        Name: "Kind",
+        Use: "kind <text argument>",
+        Short: "set the directive kind (file base or recursion base)",
+        Long:  "set the directive kind (file base or recursion base)",
+    },
+
+    Field{
+        Name: "Description",
+        Use: "description <text argument>",
+        Short: "set the full description of a custom directive",
+        Long:  "set the full description of a custom directive",
+    },
+
+    Field{
+        Name: "Short",
+        Use: "short <text argument>",
+        Short: "set the short description of a custom directive",
+        Long:  "set the short description of a custom directive",
+    },
+
+    Field{
+        Name: "Prompt",
+        Use: "prompt <text argument>",
+        Short: "set the prompt file for a directive",
+        Long:  "set the prompt file for a directive",
+    },
+
+    Field{
+        Name: "PromptText",
+        Use: "prompt-text <text argument>",
+        Short: "set the prompt text for a directive (override the prompt file)",
+        Long:  "set the prompt text for a directive (override the prompt file)",
+    },
+
+    Field{
+        Name: "PromptText",
+        Use: "prompt-text <text argument>",
+        Short: "set the prompt text for a directive (override the prompt file)",
+        Long:  "set the prompt text for a directive (override the prompt file)",
+    },
+
+    Field{
+        Name: "Model",
+        Use: "model <text argument>",
+        Short: "set the model for a particular directive",
+        Long:  "set the model for a particular directive",
+    },
+
+    Field{
+        Name: "Output",
+        Use: "output <text argument>",
+        Short: "set the output file for a directive's result",
+        Long:  "set the output file for a directive's result",
+    },
+
+    Field{
+        Name: "ApiKey",
+        Use: "apikey <text argument>",
+        Short: "set a directive's api key",
+        Long:  "set a directive's api key",
+    },
+
+    Field{
+        Name: "LocalDocs",
+        Use: "local-docs <path>",
+        Short: "set where a directive can locally source documentation not written in files",
+        Long:  "set where a directive can locally source documentation not written in files",
+    },
+}
 
 
+func AddFieldUpdates(directive types.Directive) ([]*cobra.Command, error){
+    ret := make([]*cobra.Command, 0, len(StringFieldsToUpdate))
+
+    for _, field := range StringFieldsToUpdate {
+        ret = append(ret, &cobra.Command{
+            Use: field.Use,
+            Short: field.Short,
+            Long:  field.Long,
+            Args:  cobra.ExactArgs(1),
+            Run: func(cmd *cobra.Command, args []string) {
+                log.Debugf("%v %v triggered", field.Name, directive)
+
+                configFiles, err := helpers.GetConfigsFromFlags(cmd)
+                if err != nil {
+                    log.Fatalf("failed to get the correct config files: %v", err)
+                }
+
+                err = UpdateDirectiveFieldInConfigs(directive, field.Name, args[0], configFiles)
+                if err != nil {
+                    log.Fatalf("Failed to update directive field %v: %v", field.Name, err)
+                }
+            },
+        })
+    }
+
+    return ret, nil
+}
+
+
+var ArrayFieldsToUpdate = []Field{
+    Field{
+        Name: "Focus",
+        Use: "add <text arguments>",
+        Short: "add functions or files for autoscibe to add documentation to / focus on",
+        Long:  "add functions or files for autoscibe to add documentation to / focus on",
+    },
+
+    Field{
+        Name: "Ignore",
+        Use: "ignore <text arguments>",
+        Short: "ignore functions or files",
+        Long:  "ignore functions or files",
+    },
+
+    Field{
+        Name: "Servers",
+        Use: "server <text arguments>",
+        Short: "set where a directive sources documentation from if it can't be found locally (godocs is implicit)",
+        Long:  "set where a directive sources documentation from if it can't be found locally (godocs is implicit)",
+    },
+}
+
+
+func AddArrayUpdates(directive types.Directive) ([]*cobra.Command, error) {
+    ret := make([]*cobra.Command, 0, len(StringFieldsToUpdate))
+
+    for _, field := range StringFieldsToUpdate {
+        ret = append(ret,  &cobra.Command{
+            Use: field.Use,
+            Short: field.Short,
+            Long:  field.Long,
+
+            Run: func(cmd *cobra.Command, args []string) {
+                log.Debugf("%v files triggered", directive)
+
+                configFiles, err := helpers.GetConfigsFromFlags(cmd)
+                if err != nil {
+                    log.Fatalf("failed to get the correct config files: %v", err)
+                }
+
+                err = UpdateDirectiveArrayInConfigs(directive, field.Name, args, configFiles)
+                if err != nil {
+                    log.Fatalf("Failed to update directive array %v: %v", directive.Name, err)
+                }
+            },
+
+        })
+    }
+
+    return ret, nil
+}
 
