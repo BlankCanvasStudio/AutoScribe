@@ -3,15 +3,12 @@ package config
 import (
 	"os"
 	"fmt"
-	// "flag"
         "path/filepath"
 	"gopkg.in/yaml.v3"
 
 	log "github.com/sirupsen/logrus"
 
 	"github.com/BlankCanvasStudio/AutoScribe/pkg/types"
-	// "github.com/BlankCanvasStudio/AutoScribe/pkg/ai"
-	// "github.com/BlankCanvasStudio/AutoScribe/pkg/types"
 )
 
 

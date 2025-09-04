@@ -2,12 +2,10 @@ package directives
 
 import (
     "fmt"
-    // "github.com/spf13/cobra"
 
     log "github.com/sirupsen/logrus"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/types"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
-    // "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/helpers"
 )
 
 func CreateNewDirective(name string, prompt string, configFiles []string) error {

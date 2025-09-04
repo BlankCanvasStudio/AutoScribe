@@ -6,7 +6,6 @@ import (
     log "github.com/sirupsen/logrus"
 
     "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
-    // "github.com/BlankCanvasStudio/AutoScribe/tests/helpers"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/directives"
 )
 

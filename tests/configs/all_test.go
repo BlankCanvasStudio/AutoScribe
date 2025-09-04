@@ -7,8 +7,6 @@ import (
 
     "github.com/BlankCanvasStudio/AutoScribe/pkg/types"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
-    // "github.com/BlankCanvasStudio/AutoScribe/tests/helpers"
-    // "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/irectives"
 )
 
 

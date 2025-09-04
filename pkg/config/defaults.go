@@ -4,8 +4,6 @@ import (
     "os"
     "strings"
     "path/filepath"
-
-    // "github.com/BlankCanvasStudio/AutoScribe/pkg/types"
 )
 
 var GlobalConfigFile    string = "/etc/autoscribe/conf.yml"

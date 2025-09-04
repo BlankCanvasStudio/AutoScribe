@@ -1,19 +1,14 @@
 package directives;
 
 import (
-    // "os"
     "fmt"
     "strings"
     "reflect"
-    // "github.com/spf13/cobra"
 
     log "github.com/sirupsen/logrus"
 
     "github.com/BlankCanvasStudio/AutoScribe/pkg/types"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
-    // "github.com/BlankCanvasStudio/AutoScribe/pkg/ai/calls"
-    // "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/helpers"
-    // "github.com/BlankCanvasStudio/AutoScribe/pkg/ai/formatting"
 )
 
 
