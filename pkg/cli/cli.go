@@ -20,6 +20,15 @@ var AdditionalPrompt string
 
 var debug bool
 
+func SetDebug() {
+    if debug {
+            log.SetLevel(log.DebugLevel)
+            log.Debug("Debug logging enabled")
+    } else {
+            log.SetLevel(log.InfoLevel)
+    }
+}
+
 var rootCmd = &cobra.Command{
     Use:   "asb",
     Short: "",
@@ -29,12 +38,7 @@ var rootCmd = &cobra.Command{
         log.Infof("hugo ran")
     },
     PersistentPreRun: func(cmd *cobra.Command, args []string) {
-            if debug {
-                    log.SetLevel(log.DebugLevel)
-                    log.Debug("Debug logging enabled")
-            } else {
-                    log.SetLevel(log.InfoLevel)
-            }
+        SetDebug()
     },
 }
 
@@ -52,6 +56,8 @@ var runCmd = &cobra.Command{
     Short: "Run all the directives initialized in this repository",
     Long:  `Run all the directives initialized in this repository`,
     Run: func(cmd *cobra.Command, args []string) {
+        log.Debugf("Running all directives in scope")
+
         configScopes, err := helpers.GetConfigsFromFlags(cmd)
         if err != nil {
             log.Fatalf("failed to get configs from flags: %v", err)
@@ -59,6 +65,7 @@ var runCmd = &cobra.Command{
 
         for name, directive := range config.Settings.Directives {
             if !slices.Contains(configScopes, directive.Scope) {
+                log.Debugf("skipping directive %v; not in scope", name)
                 continue
             }
 
@@ -71,11 +78,13 @@ var runCmd = &cobra.Command{
 }
 
 func AddFlagsToCmd(in *cobra.Command) {
+    log.Debugf("Initializing flags...")
+
     in.PersistentFlags().BoolVar(&debug, "debug", false, "Enable debug logging")
     in.PersistentFlags().BoolP("global", "g", false, "Utilize global settings (otherwise local folder)")
     in.PersistentFlags().BoolP("user",   "u", false, "Utilize user settings (otherwise local folder)")
     in.PersistentFlags().BoolP("local",  "l", false, "Utilize current folder settings (default)")
-    in.PersistentFlags().StringVarP(&CfgFile, "prompt", "p", "", "Add additional context to your directive's prompt")
+    // in.PersistentFlags().StringVarP(&CfgFile, "prompt", "p", "", "Add additional context to your directive's prompt")
 
     in.PersistentFlags().StringVarP(&CfgFile, "config", "c", "", "Specify config file to use")
 
@@ -94,6 +103,7 @@ func AddFlagsToCmd(in *cobra.Command) {
 }
 
 func Execute() {
+    log.Debugf("Adding flags to cmd...")
     AddFlagsToCmd(rootCmd)
 
     if err := rootCmd.Execute(); err != nil {

@@ -1,93 +1,134 @@
-# Project Name
+# AutoScribe
 
-A brief description of the project purpose and functionalities. (Please replace with actual project details if known.)
-
----
-
-## Overview
-
-This project provides a [brief overview of what the software does or its main features]. It is designed to help users [solve specific problems, automate tasks, etc.].
+AutoScribe is a command-line tool designed for automating code documentation and project management tasks. It supports defining custom directives to generate, update, or export documentation and configuration snippets, making it ideal for streamlining development workflows.
 
 ---
 
-## Dependencies
+## Features
 
-- [List key dependencies/libraries, e.g., Python 3.8+, Node.js, CMake, etc.]
-- [Optional: mention any system requirements, e.g., Linux, macOS, Windows]
+- Load and manage multiple configuration scopes (global, user, local, custom)
+- Define and create custom directives for automation
+- Generate README files based on code annotations
+- Create and document project ASTs
+- Support for dynamic CLI directives with flexible scope management
+- Extensible architecture with plugin-like directives
 
 ---
 
-## Building and Installing
+## Requirements
 
-### Using the Makefile
+- Go 1.23.11 or higher
+- Dependencies:
+  - `github.com/spf13/cobra`
+  - `github.com/sirupsen/logrus`
+  - `github.com/openai/openai-go/v2`
+  - `gopkg.in/yaml.v3`
 
-If a Makefile is present, follow these steps:
+## Dependencies Installation
 
 ```bash
-# Install dependencies (if specified)
-# e.g., for a Python project:
-# pip install -r requirements.txt
-
-# Build the project
-make
-
-# Install the built files (if applicable)
-sudo make install
+# Ensure dependencies are downloaded
+go mod tidy
 ```
 
-*Note:* Replace or supplement these commands based on actual Makefile targets if specified.
+## Building the Application
 
----
+```bash
+# Build the executable
+make
+```
 
-## Configuring
+This will generate a binary named `build/autoscribe`.
 
-No specific configuration details are provided. If configuration files or environment variables are required, set them according to your environment's needs.
+## Installation
+
+```bash
+# Copy the binary to your PATH
+sudo cp build/autoscribe /usr/local/bin/autoscribe
+```
+
+You can now run `autoscribe` from any directory.
 
 ---
 
 ## Usage
 
-### Command Line Options
-
-(List out options based on the source code or any provided CLI interface; include descriptions)
-
-For example:
+### Basic CLI Commands
 
 ```bash
-./project_executable [options]
+# Run all directives in scope
+autoscribe run
 ```
 
-**Options:**
+### Common Options
 
-- `-h`, `--help`: Show help message and exit.
-- `-v`, `--version`: Print the version information.
-- `[other options]`: Provide explanation.
+- `--debug`: Enable verbose debug logging
+- `-g`, `--global`: Use global configuration scope
+- `-u`, `--user`: Use user configuration scope
+- `-l`, `--local`: Use local (current folder) configuration scope (default)
+- `--config <file>`: Specify a custom configuration file
 
-### Example
+### Example: Running all directives
 
 ```bash
-./project_executable --input data/input.txt --output results/output.txt
+autoscribe --debug run
 ```
 
-*(Replace with actual command and options once known.)*
+### Example: Creating a new directive
+
+```bash
+autoscribe directive create myDirective "/path/to/prompt.txt"
+```
+
+This saves a new custom directive named `myDirective` with the specified prompt file in the selected configuration scope.
+
+### Example: Export a directive
+
+```bash
+autoscribe directive export myDirective
+```
+
+Exports the directive to specified configuration files based on scope flags.
+
+### Example: Generate Readme / Help Menus
+
+The tool can generate README, help menu implementation, or help text based on configuration flags, during main execution (see code comments). Uncomment relevant sections in `main.go` to activate.
 
 ---
 
-## Architecture & Structure
+## Extending with Custom Directives
 
-- The project is organized with [brief description of the folder structure].
-- Key components include:
-  - `src/`: Source code files
-  - `bin/`: Built executables
-  - `tests/`: Test scripts and test data
-  - `Makefile`: Build instructions
+Create custom directives using the `directive create` command, then customize behavior with flags such as:
+
+- `kind <text>`: Set directive kind (e.g., "file", "recursion")
+- `description <text>`: Set directive description
+- `short <text>`: Set short description
+- `prompt <file>`: Set prompt file path
+- `model <model>`: Specify ML model
+- `output <file>`: Save output to specified file
+- `apikey <key>`: Set API key
+- `local-docs <path>`: Path for local documentation sources
+
+These can be combined with `add`, `ignore`, and `server` array commands for targeted modifications.
 
 ---
 
-## Additional Resources
+## Maintenance & Contribution
 
-For more information, refer to documentation or source code comments.
+- Fork and clone the repository
+- Implement features or fixes
+- Submit pull requests
+- Support issues via GitHub
 
 ---
 
-*Note:* Since specific source code details are not provided, some sections are placeholders; please update them once more information becomes available.
+## License
+
+MIT License. See `LICENSE` for details.
+
+---
+
+For detailed instructions and advanced usages, refer to the source code and inline comments within the project files.
+
+---
+**Enjoy automating your documentation with AutoScribe!**

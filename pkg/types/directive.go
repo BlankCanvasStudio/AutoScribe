@@ -155,11 +155,14 @@ func (d *Directive) Execute() error {
 
     switch d.Model {
         case GPT_41_Nano:
-            return nil
-            // return Query4_1Nano(directive, full_prompt)
+            // return nil
+            aiResult, err = d.Query41Nano()
+            if err != nil {
+                return fmt.Errorf("failed to query 41Nano: %v", err)
+            }
+
         default:
-            return nil
-            // return "", fmt.Errorf("model %v doesn't exist", directive.Model)
+            return fmt.Errorf("model %v doesn't exist", d.Model)
     }
 
     if d.Output == "" {

@@ -47,11 +47,36 @@ var CreateCmd = &cobra.Command{
 }
 
 
+/*
+var RemoveCmd = &cobra.Command{
+    Use:   "remove [directive] [parameter] <values>",
+    Short: "",
+    Long:  ``,
+
+    Run: func(cmd *cobra.Command, args []string) {
+        configFiles, err := helpers.GetConfigsFromFlags(cmd)
+        if err != nil {
+            log.Fatalf("failed to get the correct config files: %v", err)
+        }
+
+        name := args[0]
+        field := args[1]
+
+        err = CreateNewDirective(name, prompt, configFiles)
+        if err != nil {
+            log.Fatalf("failed to create new directive: %v", err)
+        }
+    },
+}f
+*/
+
+
 func CreateCustomCommands() ([]*cobra.Command, error) {
     log.Debugf("custom directives found: %v", len(config.Settings.Directives))
 
     var customCmds = make([]*cobra.Command, 0, len(config.Settings.Directives));
 
+    // We should auto generate these from lists now
     init_options := "[init|add|ignore|model|docs|prompt|prompt-text|run]"
 
     for name, directive := range config.Settings.Directives {
@@ -107,6 +132,7 @@ func CreateCustomCommands() ([]*cobra.Command, error) {
         }
 
         for _, arrayCmd := range arrayCmds {
+            log.Debugf("Adding array command: %+v", arrayCmd)
             createCmd.AddCommand(arrayCmd)
         }
 
@@ -353,14 +379,14 @@ var ArrayFieldsToUpdate = []Field{
 func AddArrayUpdates(directive types.Directive) ([]*cobra.Command, error) {
     ret := make([]*cobra.Command, 0, len(StringFieldsToUpdate))
 
-    for _, field := range StringFieldsToUpdate {
+    for _, field := range ArrayFieldsToUpdate {
         ret = append(ret,  &cobra.Command{
             Use: field.Use,
             Short: field.Short,
             Long:  field.Long,
 
             Run: func(cmd *cobra.Command, args []string) {
-                log.Debugf("%v files triggered", directive)
+                log.Debugf("%v triggered: %v", field.Name, directive)
 
                 configFiles, err := helpers.GetConfigsFromFlags(cmd)
                 if err != nil {

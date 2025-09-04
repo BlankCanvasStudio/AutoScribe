@@ -209,10 +209,19 @@ func SetArray(obj any, name string, value any) error {
         }
 
 	// Handle pointer fields by accepting both T and *T
-	if f.Kind() == reflect.Array || f.Kind() == reflect.Slice {
-            f.Set(reflect.Append(f, val))
+        if f.Kind() == reflect.Array || f.Kind() == reflect.Slice {
+            exists := false
+            for i := 0; i < f.Len(); i++ {
+                if reflect.DeepEqual(f.Index(i).Interface(), val.Interface()) {
+                    exists = true
+                    break
+                }
+            }
+            if !exists {
+                f.Set(reflect.Append(f, val))
+            }
             return nil
-	}
+        }
 
 	return fmt.Errorf("cannot assign %s to field %s of type %s", val.Type(), name, f.Type())
 }

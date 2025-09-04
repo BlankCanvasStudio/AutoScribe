@@ -3,7 +3,7 @@ all: \
 
 install: \
 	build/autoscribe \
-	/etc/autoscribe/conf.yaml \
+	/etc/autoscribe/conf.yml \
 	/etc/autoscribe/prompts \
 	/usr/local/bin/autoscribe
 
@@ -14,8 +14,8 @@ build/autoscribe: $(CMD_SOURCES) $(PKG_SOURCES)
 	mkdir -p build
 	go build -o $@ cmd/main.go
 
-/etc/autoscribe/autoscribe.conf: 
-	[ -f $@ ] || (mkdir -p /etc/autoscribe && cp dist/autoscribe.conf /etc/bitdrift/autoscribe.conf)
+/etc/autoscribe/conf.yml:
+	[ -f $@ ] || (mkdir -p /etc/autoscribe && cp dist/conf.yml $@)
 
 /usr/local/bin/autoscribe: build/autoscribe
 	cp build/autoscribe $@

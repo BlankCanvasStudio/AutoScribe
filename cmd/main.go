@@ -32,6 +32,8 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+        log.Debugf("Loaded config!")
+
         cli.Execute()
 
         /*
