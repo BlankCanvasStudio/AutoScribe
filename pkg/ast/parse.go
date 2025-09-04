@@ -17,7 +17,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	asTypes "github.com/BlankCanvasStudio/AutoScribe/pkg/types"
+	// asTypes "github.com/BlankCanvasStudio/AutoScribe/pkg/types"
 )
 
 type FunctionKind string
@@ -47,7 +47,7 @@ type FunctionCall struct {
 type FunctionInfo struct {
 	Package *PackageNode
 
-	Language asTypes.SupportedFormat
+	// Language asTypes.SupportedFormat
 
 	Name        string
 	ResolvedPkg string
