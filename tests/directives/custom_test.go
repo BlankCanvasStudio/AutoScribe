@@ -168,7 +168,7 @@ func TestUpdateDirectiveField(t *testing.T) {
     // Initialize Directive we just saved into project scope
     err = directives.UpdateDirectiveFieldInConfigs(directive, parameter, newValue, configs)
     if err != nil {
-        log.Fatalf("Failed to update 'Kind' in directive: %v", err)
+        log.Fatalf("Failed to update %v in directive: %v", parameter, err)
     }
 
     // Load the default scope
@@ -234,7 +234,7 @@ func TestUpdateDirectiveArray(t *testing.T) {
     // Initialize Directive we just saved into project scope
     err = directives.UpdateDirectiveArrayInConfigs(directive, parameter, newValue, configs)
     if err != nil {
-        log.Fatalf("Failed to update 'Kind' in directive: %v", err)
+        log.Fatalf("Failed to update %v in directive: %v", parameter, err)
     }
 
     // Load the default scope
@@ -253,11 +253,10 @@ func TestUpdateDirectiveArray(t *testing.T) {
             log.Fatalf("failed to load %v from %v", name, saveToConfig)
         }
 
-        v := reflect.ValueOf(ld)
-        f := v.FieldByName(parameter)
+        servers := ld.Servers
 
-        if f.String() != newValue {
-            log.Fatalf("Loaded %v was %v, not %v", parameter, v.String(), newValue)
+        if ! reflect.DeepEqual(servers, newValue) {
+            log.Fatalf("Loaded %v was %v, not %v", parameter, servers, newValue)
         }
     }
     config.PopLoadedConfig()

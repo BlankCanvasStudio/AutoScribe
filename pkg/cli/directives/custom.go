@@ -275,12 +275,12 @@ func UpdateDirectiveArrayInConfigs(directive types.Directive, field string, args
         }
     }
 
-    err := directive.CheckForSave()
+    err := d.CheckForSave()
     if err != nil {
         return fmt.Errorf("can't update directive: %v", err)
     }
 
-    config.Settings.Directives[directive.Name] = directive
+    config.Settings.Directives[directive.Name] = d
 
     savedConfig := config.Settings
 

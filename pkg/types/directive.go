@@ -94,9 +94,11 @@ func (d *Directive) CheckForSave() error {
         return fmt.Errorf("no directive name specified for: %+v", d)
     }
 
+    /*
     if d.Kind == NoneDirective {
         return fmt.Errorf("no directive kind specified for %v", d.Name)
     }
+    */
 
     if d.Prompt == "" && d.PromptText == "" {
         return fmt.Errorf("no prompt file or text specified for directive %v", d.Name)
