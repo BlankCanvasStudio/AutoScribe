@@ -7,13 +7,11 @@ import (
 	// "go/ast"
 
 	log "github.com/sirupsen/logrus"
-
 	// "github.com/BlankCanvasStudio/AutoScribe/pkg/types"
 	// "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
 	// "github.com/BlankCanvasStudio/AutoScribe/pkg/ai/calls"
 	// "github.com/BlankCanvasStudio/AutoScribe/pkg/ai/formatting"
 )
-
 
 //
 //
@@ -33,7 +31,6 @@ import (
 //   - Assumes that the related call functions are accessible and properly linked.
 //   - Handles recursive documentation for unmarked call functions.
 
-//
 func DocumentFunctions(f *FunctionInfo) error {
 	// Consider how gpt aware gets loaded
 	if f.AiAware || f.Documented || f.WasDocumented {
@@ -55,28 +52,28 @@ func DocumentFunctions(f *FunctionInfo) error {
 		}
 	}
 
-        /*
-	// By this point all nodes are either GPT aware or documented
-	NodeAsAiText, err := f.ToStringForGPT()
-	if err != nil {
-		return fmt.Errorf("failed to convert FunctionNode to GPT string: %v", err)
-	}
-        NodeAsAiText = ""
+	/*
+			// By this point all nodes are either GPT aware or documented
+			NodeAsAiText, err := f.ToStringForGPT()
+			if err != nil {
+				return fmt.Errorf("failed to convert FunctionNode to GPT string: %v", err)
+			}
+		        NodeAsAiText = ""
 
-        DocumentationString, err := calls.QueryFromFile(types.GPT_41_Nano, config.DocsPrompt, f.Language, NodeAsAiText)
-        if err != nil {
-            return fmt.Errorf("failed to query from file: %v", err)
-        }
+		        DocumentationString, err := calls.QueryFromFile(types.GPT_41_Nano, config.DocsPrompt, f.Language, NodeAsAiText)
+		        if err != nil {
+		            return fmt.Errorf("failed to query from file: %v", err)
+		        }
 
-        log.Debugf("result from gpt: `%v`", DocumentationString)
+		        log.Debugf("result from gpt: `%v`", DocumentationString)
 
-	DocumentedComment, err := formatting.FormatAsGoComment(DocumentationString)
-	if err != nil {
-		return fmt.Errorf("failed to parse for comments: %v", err)
-	}
+			DocumentedComment, err := formatting.FormatAsGoComment(DocumentationString)
+			if err != nil {
+				return fmt.Errorf("failed to parse for comments: %v", err)
+			}
 
-	f.Documentation = DocumentedComment
-        */
+			f.Documentation = DocumentedComment
+	*/
 
 	f.Documented = true
 
@@ -108,7 +105,6 @@ func DocumentFunctions(f *FunctionInfo) error {
 // - Assumes the file at 'path' exists and is accessible.
 // - Handles insertion at the start (offset 0) and end (offset == file size).
 
-//
 func insertIntoFile(path string, offset int, insertion string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -120,4 +116,3 @@ func insertIntoFile(path string, offset int, insertion string) error {
 	out := append(append([]byte{}, data[:offset]...), append([]byte(insertion), data[offset:]...)...)
 	return os.WriteFile(path, out, 0644)
 }
-

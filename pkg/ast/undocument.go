@@ -11,33 +11,6 @@ import (
 	"strings"
 )
 
-/*
-*
- * summary: Removes documentation comments from function declarations within Go source files
- *          located in the specified directory and its subdirectories (optionally excluding test files).
- *          It updates the source files by stripping out function documentation comments and saving the changes.
- *
- * signature: func UndocumentDir(dir string, includeTests bool) error
- *
- * parameters:
- * - dir: string; the root directory to scan for Go source files.
- * - includeTests: bool; whether to include test files ('_test.go') in processing.
- *
- * returns:
- * - error: non-nil if an error occurs during directory traversal, parsing, formatting, or writing files.
- *
- * errors/exceptions:
- * - Returns an error if directory traversal, parsing, formatting, or file writing fails.
- *
- * side effects:
- * - Modifies source files by removing function documentation comments.
- * - Writes updated source files back to disk.
- *
- * edge cases & assumptions:
- * - Assumes input 'dir' exists and is accessible.
- * - Only processes files ending with ".go" (and optionally excluding "_test.go" files).
-
-*/
 func UndocumentDir(dir string, includeTests bool) error {
 	fset := token.NewFileSet()
 

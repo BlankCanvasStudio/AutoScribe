@@ -8,6 +8,7 @@ import (
     log "github.com/sirupsen/logrus"
 
     "github.com/BlankCanvasStudio/AutoScribe/pkg/config"
+    "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/docs"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/helpers"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/directives"
 )
@@ -100,6 +101,8 @@ func AddFlagsToCmd(in *cobra.Command) {
     for _, cmd := range customCmds {
         in.AddCommand(cmd)
     }
+
+    in.AddCommand(docs.UndocCmd)
 }
 
 func Execute() {
