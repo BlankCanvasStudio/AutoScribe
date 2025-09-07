@@ -36,7 +36,7 @@ func (c *Config) SanityCheck() error {
             } else if Settings.ApiKey != "" {       // Do one of the previous configs specify it?
                  directive.ApiKey = Settings.ApiKey
             } else {                                // Fall through to default
-                return fmt.Errorf("no api key specified for: %v", name)
+                return fmt.Errorf("no api key specified in config for: %v. Perhaps you need to update /etc/autoscribe/conf.yml?", name)
             }
        }
 

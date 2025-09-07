@@ -22,4 +22,5 @@ build/autoscribe: $(CMD_SOURCES) $(PKG_SOURCES)
 
 /etc/autoscribe/prompts:
 	mkdir -p $@
+	cp -r ./dist/prompts/* $@
 

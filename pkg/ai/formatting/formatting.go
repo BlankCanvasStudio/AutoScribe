@@ -9,7 +9,7 @@ import (
 
 func CombineFilesForContext(focus []string, ignore []string) (string, error) {
 
-    fmt.Printf("Would ignore these files, but that's not implemented yet: %v\n", ignore) 
+    log.Debugf("Would ignore these files, but that's not implemented yet: %v\n", ignore) 
 
     data := ""
 
