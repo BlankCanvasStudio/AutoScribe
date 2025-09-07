@@ -11,6 +11,7 @@ import (
     "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/docs"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/helpers"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/directives"
+    "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/document"
 )
 
 var CfgFile     string
