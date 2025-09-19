@@ -435,7 +435,7 @@ func (p *PackageNode) CreateFunctionCall(fun *ast.CallExpr) mst.FunctionCall {
 
 	// Make FCall and FInfo
 	fInfo = &FunctionInfo{Package: p}
-	fCall := &FunctionCall{}
+        fCall := &FunctionCall{Node: fun}
 	// fCall := &FunctionCall{Node: fun}
 
 	// Populate FInfo and FCall so we can look things up
@@ -550,7 +550,7 @@ func (p *PackageNode) CreateFunctionDecl(f *ast.FuncDecl) mst.FunctionDecl {
 
 	fDecl := &FunctionDecl{
 		Info: fInfo,
-		// Node: f,
+		Node: f,
 
 		Calls: []mst.FunctionCall{},
 	}

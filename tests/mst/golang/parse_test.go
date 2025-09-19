@@ -2,6 +2,7 @@ package main;
 
 import (
     // "os"
+    // "fmt"
     "slices"
     "strings"
     "testing"
@@ -73,16 +74,22 @@ func TestPopulatingDocumentation(t *testing.T) {
         info.SetDocumentation(name)
     }
 
-    for _, pkg := range gMst.GetPakcages() {
+    for _, pkg := range gMst.GetPackages() {
         for _, decl := range pkg.GetFunctionDecls() {
             NodeAsText, err := decl.ToStringForAi()
             if err != nil {
                 log.Fatalf("failed to turn decl into text for ai: %v", err)
             }
 
-            log.Infof("ai text:\n%v\n", NodeAsText)
+            if decl.GetName() != "NestingFunctionCalls" { continue }
+
+            ExpectedText := "func NestingFunctionCalls() error {\n /* github.com/BlankCanvasStudio/AutoScribe/tests/mst/golang/examples/simple.aRegularFunctionCall */\n     aRegularFunctionCall(2, \"else\")\n /* fmt.Println */\n     fmt.Println(\"some print statement\")\n\n    a := ANewStructure{}\n /* github.com/BlankCanvasStudio/AutoScribe/tests/mst/golang/examples/simple.ANewStructure.SomeCall */\n     a.SomeCall()\n\n    return nil\n}"
+
+            if NodeAsText != ExpectedText {
+                log.Fatalf("Didn't format function text with documentation as expected")
+            }
         }
     }
 
-    log.Fatalf("failed")
+    // log.Fatalf("failed")
 }
