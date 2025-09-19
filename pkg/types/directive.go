@@ -11,6 +11,8 @@ import (
     "github.com/openai/openai-go/v2/option"
 
 
+    "github.com/BlankCanvasStudio/AutoScribe/pkg/types/mst"
+    "github.com/BlankCanvasStudio/AutoScribe/pkg/types/mst/golang"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/ai/formatting"
 )
 
@@ -19,26 +21,34 @@ import (
 type DirectiveType string
 
 const (
-    NoneDirective DirectiveType = ""
-    TextDirective DirectiveType = "text"
-    DocsDirective DirectiveType = "docs"
+    NoneDirective DirectiveType      = ""
+    TextDirective DirectiveType      = "text"
+    RecursiveDirective DirectiveType = "recursive"
+)
+
+type DirectiveLanguage string
+
+const (
+    NoLang DirectiveLanguage  = ""
+    GoLang DirectiveLanguage  = "golang"
 )
 
 type Directive struct {
-    Name        string        `yaml:"name,omitempty"`
-    Kind        DirectiveType `yaml:"kind,omitempty"`
-    Description string        `yaml:"description,omitempty"`
-    Short       string        `yaml:"short,omitempty"`
-    Prompt      string        `yaml:"prompt,omitempty"`
-    PromptText  string        `yaml:"prompt_text,omitempty"`
-    Focus       []string      `yaml:"focus,omitempty"`
-    Ignore      []string      `yaml:"ignore,omitempty"`
-    Model       Model         `yaml:"model,omitempty"`
-    Output      string        `yaml:"output,omitempty"`
-    ApiKey      string        `yaml:"api_key,omitempty"`
-    LocalDocs   string        `yaml:"local_docs,omitempty"`
-    Servers     []string      `yaml:"servers,omitempty"`
-    Scope       string        `yaml:"-"`
+    Name        string            `yaml:"name,omitempty"`
+    Kind        DirectiveType     `yaml:"kind,omitempty"`
+    Language    DirectiveLanguage `yaml:"language,omitempty"`
+    Description string            `yaml:"description,omitempty"`
+    Short       string            `yaml:"short,omitempty"`
+    Prompt      string            `yaml:"prompt,omitempty"`
+    PromptText  string            `yaml:"prompt_text,omitempty"`
+    Focus       []string          `yaml:"focus,omitempty"`
+    Ignore      []string          `yaml:"ignore,omitempty"`
+    Model       Model             `yaml:"model,omitempty"`
+    Output      string            `yaml:"output,omitempty"`
+    ApiKey      string            `yaml:"api_key,omitempty"`
+    LocalDocs   string            `yaml:"local_docs,omitempty"`
+    Servers     []string          `yaml:"servers,omitempty"`
+    Scope       string            `yaml:"-"`
 }
 
 
@@ -150,12 +160,23 @@ func (d *Directive) PrettyPrint(prefix string) {
 
 
 func (d *Directive) Execute() error {
+    if d.Kind == NoneDirective || d.Kind == TextDirective {
+        return d.ExecuteTextDirective()
+    }
+
+    if d.Kind == RecursiveDirective {
+        return d.ExecuteRecursiveDirective()
+    }
+
+    return fmt.Errorf("directive kind %v not implemented", d.Kind)
+}
+
+func (d *Directive) ExecuteTextDirective() error {
     aiResult := "" 
     var err error
 
     switch d.Model {
         case GPT_41_Nano:
-            // return nil
             aiResult, err = d.Query41Nano()
             if err != nil {
                 return fmt.Errorf("failed to query 41Nano: %v", err)
@@ -175,6 +196,18 @@ func (d *Directive) Execute() error {
         return fmt.Errorf("failed to write ai output to %v: %v", d.Output, err)
     }
     
+    return nil
+}
+
+func (d *Directive) ExecuteRecursiveDirective() error {
+    if d.Language == NoLang || d.Language == GoLang{
+        gMst := golang.MST{}
+        gMst.Populate(d.Focus)
+        mst.DocumentMST(&gMst)
+    } else {
+        return fmt.Errorf("cannot parse language %v. not implemented", d.Language)
+    }
+
     return nil
 }
 

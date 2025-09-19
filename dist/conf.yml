@@ -17,5 +17,5 @@ directives:
     kind: text
   docs:
     prompt: /etc/autoscribe/prompts/docs.txt
-    kind: docs
+    kind: recursive
 

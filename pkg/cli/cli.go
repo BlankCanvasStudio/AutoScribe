@@ -11,7 +11,7 @@ import (
     "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/docs"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/helpers"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/directives"
-    "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/document"
+    // "github.com/BlankCanvasStudio/AutoScribe/pkg/cli/document"
 )
 
 var CfgFile     string
@@ -86,7 +86,7 @@ func AddFlagsToCmd(in *cobra.Command) {
     in.PersistentFlags().BoolP("global", "g", false, "Utilize global settings (otherwise local folder)")
     in.PersistentFlags().BoolP("user",   "u", false, "Utilize user settings (otherwise local folder)")
     in.PersistentFlags().BoolP("local",  "l", false, "Utilize current folder settings (default)")
-    // in.PersistentFlags().StringVarP(&CfgFile, "prompt", "p", "", "Add additional context to your directive's prompt")
+    in.PersistentFlags().StringVarP(&AdditionalPrompt, "prompt", "p", "", "Add additional context to your directive's prompt")
 
     in.PersistentFlags().StringVarP(&CfgFile, "config", "c", "", "Specify config file to use")
 
