@@ -4,6 +4,7 @@ import (
     "os"
     "fmt"
     "strings"
+    "crypto/sha256"
 
     log "github.com/sirupsen/logrus"
 )
@@ -203,7 +204,14 @@ func HasDocumentation(f FunctionDetails) bool {
     return fi.GetHasDocumentation()
 }
 
+func GetFullNameHash(f FunctionDetails) string {
+    return string(sha256.Sum256([]byte(f.GetFullName())))
+}
+
 func IsAiAware(f FunctionDetails) bool {
+    // hash := f.GetFullNameHash()
+
+
     fi := f.GetInfo()
     if fi == nil {
         return false
