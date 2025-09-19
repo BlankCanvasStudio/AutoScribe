@@ -236,6 +236,24 @@ func (p *PackageNode) GetMST() mst.MST {
 }
 
 
+func (p *FunctionDecl) SetDocumentation(docs string) error {
+    p.Info.(*FunctionInfo).Documentation = docs
+    return nil
+}
+
+func (p *FunctionCall) SetDocumentation(docs string) error {
+    p.Info.(*FunctionInfo).Documentation = docs
+    return nil
+}
+
+func (p *FunctionDecl) GetDocumentation() (string, error) {
+    return p.Info.GetDocumentation()
+}
+
+func (p *FunctionCall) GetDocumentation() (string, error) {
+    return p.Info.GetDocumentation()
+}
+
 func (p *PackageNode) GetFunctionDecls() []mst.FunctionDecl {
     return p.FunctionDecls
 }

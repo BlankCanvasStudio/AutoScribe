@@ -67,7 +67,9 @@ type FunctionDetails interface {
     GetDecl() FunctionDecl
 
     GetFile() string
-
+    
+    SetDocumentation(string) error
+    GetDocumentation() (string, error)
 
     GetDocInsertLocation() uint
 
@@ -108,7 +110,6 @@ type FunctionInfo interface {
     SetFile(string) error
 
     SetDocumentation(string) error
-    GetDocumentation() (string, error)
 
     SetDocumentedInThisPass(bool)
 
@@ -211,6 +212,20 @@ func IsAiAware(f FunctionDetails) bool {
     return fi.GetIsAiAware()
 }
 
+func IsDocumented(f FunctionDetails) bool {
+    fi := f.GetInfo()
+    if fi == nil {
+        return false
+    }
+
+    docs, err := fi.GetDocumentation()
+    if err != nil {
+        return false
+    }
+
+    return len(docs) > 0
+}
+
 func GetFuncDecl(f FunctionDetails) (FunctionDecl, error) {
     fi := f.GetInfo()
     if fi == nil {
@@ -308,19 +323,10 @@ func DocumentMST (m MST) (MST, error) {
 
 func Document(f FunctionDetails) error {
 	// Consider how gpt aware gets loaded
-        /*
-	if IsAiAware(f) || IsDocumented(f) || WasDocumented(f) {
+	// if IsAiAware(f) || IsDocumented(f) || WasDocumented(f) {
+	if IsAiAware(f) || IsDocumented(f) {
 		return nil
-
 	}
-        */
-
-        /*
-	if !DocumentedThisPass(f) {
-		return nil
-
-	}
-        */
 
         decl, err := GetFuncDecl(f)
         if err != nil {
@@ -333,7 +339,7 @@ func Document(f FunctionDetails) error {
 		return nil
 	}
 
-        // This is almost certainly an issue
+        // Make sure we have all the nested documentation
         for _, call := range decl.GetCalls() {
             tInfo := call.GetInfo()
             if !HasDocumentation(tInfo) && !IsAiAware(tInfo) {
@@ -370,6 +376,8 @@ func Document(f FunctionDetails) error {
 
         f.SetDocumentation(DocumentedComment)
         */
+
+        f.SetDocumentation(f.GetName())
 
         f.SetDocumentedInThisPass(true)
 
