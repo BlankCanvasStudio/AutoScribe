@@ -65,3 +65,24 @@ func TestPopulateMst(t *testing.T) {
 }
 
 
+func TestPopulatingDocumentation(t *testing.T) {
+    gMst := golang.MST{}
+    gMst.Populate([]string {"./examples/simple"})
+
+    for name, info := range gMst.FunctionMap {
+        info.SetDocumentation(name)
+    }
+
+    for _, pkg := range gMst.GetPakcages() {
+        for _, decl := range pkg.GetFunctionDecls() {
+            NodeAsText, err := decl.ToStringForAi()
+            if err != nil {
+                log.Fatalf("failed to turn decl into text for ai: %v", err)
+            }
+
+            log.Infof("ai text:\n%v\n", NodeAsText)
+        }
+    }
+
+    log.Fatalf("failed")
+}
