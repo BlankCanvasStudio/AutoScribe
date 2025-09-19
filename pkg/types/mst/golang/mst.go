@@ -58,12 +58,16 @@ type FunctionDecl struct {
 
     DocInsertLocation uint
 
+    Package     mst.PackageNode
+
     Node *ast.FuncDecl
 }
 
 type FunctionCall struct {
     Info mst.FunctionInfo
     Kind mst.FunctionCallKind
+
+    Package     mst.PackageNode
 
     Node *ast.CallExpr
 }
@@ -194,8 +198,6 @@ func (p *PackageNode) FindLineNo(n ast.Node) int {
     lineOffset := p.Fset.Position(lineStart).Offset
 
     return lineOffset
-
-    // return fset.File(n.Pop.Fset.Position(n.Pos()).Line
 }
 
 func (p *PackageNode) ClipFunctionCycles(f mst.FunctionInfo, callStack []string) error {
@@ -434,8 +436,9 @@ func (p *PackageNode) CreateFunctionCall(fun *ast.CallExpr) mst.FunctionCall {
         var fInfo mst.FunctionInfo
 
 	// Make FCall and FInfo
+        // So this is wrong, but it doesn't matter cause we update it later
 	fInfo = &FunctionInfo{Package: p}
-        fCall := &FunctionCall{Node: fun}
+        fCall := &FunctionCall{Node: fun, Package: p}
 	// fCall := &FunctionCall{Node: fun}
 
 	// Populate FInfo and FCall so we can look things up
@@ -445,6 +448,8 @@ func (p *PackageNode) CreateFunctionCall(fun *ast.CallExpr) mst.FunctionCall {
 
 		fInfo.SetName(fd.Name)
 		fInfo.SetResolvedPkg(p.ID)
+
+                // fInfo.Package = p
 
 	case *ast.SelectorExpr:
 		sel, _ := fd.X.(*ast.Ident)
@@ -546,11 +551,13 @@ func (p *PackageNode) CreateFunctionDecl(f *ast.FuncDecl) mst.FunctionDecl {
 		fInfo.Documentation = docs
 		fInfo.File = p.CurrentFile
 		fInfo.HasDocumentation = docs != ""
+                fInfo.Package = p
 	}
 
 	fDecl := &FunctionDecl{
 		Info: fInfo,
 		Node: f,
+                Package: p,
 
 		Calls: []mst.FunctionCall{},
 	}
@@ -804,6 +811,10 @@ func (p *PackageNode) FindStartEnd(n ast.Node) (int, int) {
 	return start, end
 }
 
+func (f *FunctionInfo) ToStringForAi() (string, error) {
+    return f.GetDecl().ToStringForAi()
+}
+
 func (f *FunctionDecl) ToStringForAi() (string, error) {
 
 	// // This should only be one layer deep. We are using comments to avoid the recursion
@@ -879,11 +890,11 @@ func (f *FunctionCall) GetDocInsertLocation() uint {
 }
 
 func (f *FunctionDecl) FindLineNo() int {
-    return f.Info.(*FunctionInfo).Package.(*PackageNode).FindLineNo(f.Node)
+    return f.Package.(*PackageNode).FindLineNo(f.Node)
 }
 
 func (f *FunctionCall) FindLineNo() int {
-    return f.Info.(*FunctionInfo).Package.(*PackageNode).FindLineNo(f.Node)
+    return f.Package.(*PackageNode).FindLineNo(f.Node)
 }
 
 func (f *FunctionDecl) FindStartEnd() (int, int) {

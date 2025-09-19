@@ -200,10 +200,19 @@ func (d *Directive) ExecuteTextDirective() error {
 }
 
 func (d *Directive) ExecuteRecursiveDirective() error {
-    if d.Language == NoLang || d.Language == GoLang{
+    if d.Language == NoLang || d.Language == GoLang {
         gMst := golang.MST{}
-        gMst.Populate(d.Focus)
-        mst.DocumentMST(&gMst)
+
+        err := gMst.Populate(d.Focus)
+        if err != nil {
+            return fmt.Errorf("failed to populate packages: %v", err)
+        }
+
+        _, err = mst.DocumentMST(&gMst)
+        if err != nil {
+            return fmt.Errorf("failed to document MST: %v", err)
+        }
+
     } else {
         return fmt.Errorf("cannot parse language %v. not implemented", d.Language)
     }

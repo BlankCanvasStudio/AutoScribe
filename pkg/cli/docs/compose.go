@@ -8,6 +8,10 @@ import (
     "github.com/BlankCanvasStudio/AutoScribe/pkg/docs"
 )
 
+func init() {
+    // Cmd.AddCommand(CreateCmd)
+}
+
 
 var UndocCmd = &cobra.Command{
   Use:   "undoc [files / folders]",
@@ -22,11 +26,4 @@ var UndocCmd = &cobra.Command{
     }
   },
 }
-
-func init() {
-    // Cmd.AddCommand(CreateCmd)
-}
-
-
-
 

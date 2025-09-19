@@ -68,6 +68,7 @@ type FunctionDetails interface {
 
     GetFile() string
 
+
     GetDocInsertLocation() uint
 
     SetDocumentedInThisPass(bool)
@@ -75,6 +76,8 @@ type FunctionDetails interface {
     CreateComment(string) string
 
     GetCalls() []FunctionCall
+
+    ToStringForAi() (string, error)
 }
 
 type FunctionNode interface {
@@ -285,8 +288,14 @@ func ToStringForAi(f FunctionNode) (string, error) {
 }
 
 func DocumentMST (m MST) (MST, error) {
+    err := m.HandleCyclicDependencies()
+    if err != nil {
+        return m, fmt.Errorf("failed to handle cyclic dependencies: %v", err)
+    }
+
     for _, pkg := range m.GetPackages() {
         for _, fd := range pkg.GetFunctionDecls() {
+
             err := Document(fd)
             if err != nil {
                 return m, fmt.Errorf("failed to document func %v: %v", fd.GetName(), err)
@@ -306,11 +315,12 @@ func Document(f FunctionDetails) error {
 	}
         */
 
+        /*
 	if !DocumentedThisPass(f) {
 		return nil
 
 	}
-
+        */
 
         decl, err := GetFuncDecl(f)
         if err != nil {
@@ -336,13 +346,16 @@ func Document(f FunctionDetails) error {
             }
         }
 
-        /*
         // By this point all nodes are either GPT aware or documented
         NodeAsAiText, err := f.ToStringForAi()
         if err != nil {
                 return fmt.Errorf("failed to convert FunctionNode to AI string: %v", err)
         }
 
+        log.Infof("FunctionNode: %+v", f)
+        log.Infof("Node %v as AI text:\n%v", f.GetName(), NodeAsAiText)
+
+        /*
         DocumentationString, err := calls.QueryFromFile(GPT_41_Nano, config.DocsPrompt, NodeAsAiText)
         if err != nil {
             return fmt.Errorf("failed to query from file: %v", err)

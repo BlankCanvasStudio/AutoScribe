@@ -2,7 +2,7 @@ package main;
 
 import (
     // "os"
-    // "fmt"
+    "fmt"
     "slices"
     "strings"
     "testing"
@@ -90,6 +90,28 @@ func TestPopulatingDocumentation(t *testing.T) {
             }
         }
     }
-
-    // log.Fatalf("failed")
 }
+
+func TestPopulateAcrossPackages(t *testing.T) {
+    gMst := golang.MST{}
+    // Order matters here
+    gMst.Populate([]string {"./examples/importing", "./examples/simple"})
+
+    function_we_import := "github.com/BlankCanvasStudio/AutoScribe/tests/mst/golang/examples/simple.NestingFunctionCalls"
+
+    val, ok := gMst.FunctionMap[function_we_import]
+
+    if !ok {
+        log.Fatalf("function %v isn't in function map, despite being declared and imported", function_we_import)
+    }
+
+    if val.GetPackage().GetPath() != "github.com/BlankCanvasStudio/AutoScribe/tests/mst/golang/examples/simple" {
+        fmt.Printf("\n\n%v\n\n", val.GetPackage().GetPath())
+        log.Fatalf(fmt.Sprintf("package for function info not set correctly"))
+    }
+
+
+}
+
+
+

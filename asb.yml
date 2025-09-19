@@ -1,4 +1,21 @@
 directives:
+    docs:
+        kind: recursive
+        prompt: /etc/autoscribe/prompts/docs.txt
+        focus:
+            - ./cmd
+            - ./pkg/ast
+            - ./pkg/cli
+            - ./pkg/cli/docs
+            - ./pkg/cli/helpers
+            - ./pkg/cli/directives
+            - ./pkg/config
+            - ./pkg/docs
+            - ./pkg/files
+            - ./pkg/types
+            - ./pkg/types/mst/manipulate
+            - ./pkg/types/mst/golang
+            - ./pkg/ai/formatting
     readme:
         kind: text
         prompt: /etc/autoscribe/prompts/readme.txt
