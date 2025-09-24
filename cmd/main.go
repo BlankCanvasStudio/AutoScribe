@@ -5,6 +5,8 @@ import (
 
 	"github.com/BlankCanvasStudio/AutoScribe/pkg/cli"
 	"github.com/BlankCanvasStudio/AutoScribe/pkg/config"
+
+	"github.com/BlankCanvasStudio/AutoScribe/pkg/types/mst"
 )
 
 
@@ -15,6 +17,19 @@ func main() {
 	}
 
         log.Debugf("Loaded config!")
+
+        /*
+        // Make the data bases path, if we can
+        if err := os.MkdirAll(config.GlobalDatabaseDir, 0755); err != nil {
+            log.Errorf("failed to make %v: %v", config.GlobalDatabaseDir, err)
+        }
+
+        if err := os.MkdirAll(config.UserDatabaseDir, 0755); err != nil {
+            log.Errorf("failed to make %v: %v", config.UserDatabaseDir, err)
+        }
+        */
+
+        log.Infof("Using documentation database: %v", mst.DocumentationDb)
 
         cli.Execute()
 

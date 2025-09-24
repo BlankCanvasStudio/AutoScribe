@@ -13,6 +13,7 @@ import (
 
     "github.com/BlankCanvasStudio/AutoScribe/pkg/types/mst"
     "github.com/BlankCanvasStudio/AutoScribe/pkg/types/mst/golang"
+
     "github.com/BlankCanvasStudio/AutoScribe/pkg/ai/formatting"
 )
 
@@ -208,7 +209,7 @@ func (d *Directive) ExecuteRecursiveDirective() error {
             return fmt.Errorf("failed to populate packages: %v", err)
         }
 
-        _, err = mst.DocumentMST(&gMst)
+        _, err = mst.DocumentMST(&gMst, d.ApiKey)
         if err != nil {
             return fmt.Errorf("failed to document MST: %v", err)
         }

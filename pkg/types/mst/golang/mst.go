@@ -292,6 +292,16 @@ func (p *PackageNode) SetTypeDefs(in []mst.TypeDefinition) error {
 }
 
 
+func (p *PackageNode) GetResolvedPackageName() string {
+    return p.ID
+}
+
+func (p *PackageNode) SetResolvedPackageName(name string) {
+    _ = name
+    return
+    // return p.PkgPath
+}
+
 func (p *PackageNode) GetPath() string {
     return p.PkgPath
 }

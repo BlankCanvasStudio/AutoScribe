@@ -2,12 +2,25 @@ package mst;
 
 import (
     "os"
+    "io"
     "fmt"
+    "bufio"
+    "bytes"
+    "errors"
     "strings"
+    "path/filepath"
     "crypto/sha256"
 
     log "github.com/sirupsen/logrus"
+
+    "github.com/BlankCanvasStudio/AutoScribe/pkg/ai/call"
 )
+
+var IsDocumentedDb string = fmt.Sprintf("/etc/autoscribe/db/is-documented.txt")
+var DocumentationDb string = "/etc/autoscribe/db/documentation.txt"
+
+var IsAiAwareDb string = "/etc/autoscribe/db/is-ai-aware.txt"
+var NotAiAwareDb string = "/etc/autoscribe/db/not-ai-aware.txt"
 
 type FunctionCallKind string
 
@@ -50,6 +63,9 @@ type PackageNode interface {
 
     GetPath() string
     SetPath(string) error
+
+    GetResolvedPackageName() string
+    SetResolvedPackageName(string)
 
     ClipFunctionCycles(FunctionInfo, []string) error   
 
@@ -204,34 +220,98 @@ func HasDocumentation(f FunctionDetails) bool {
     return fi.GetHasDocumentation()
 }
 
-func GetFullNameHash(f FunctionDetails) string {
-    return string(sha256.Sum256([]byte(f.GetFullName())))
+func GetFullNameHash(f FunctionDetails) [32]byte {
+    return sha256.Sum256([]byte(f.GetFullName()))
 }
 
-func IsAiAware(f FunctionDetails) bool {
-    // hash := f.GetFullNameHash()
+var IsAiAwarePrompt string = `
+Do you already know what the function '%v' does?  
+Answer "Yes" if you’ve seen it before and can describe its purpose,  
+or "No" if you can’t.  
+Don't respond with anything else
+`
 
+func IsAiAware(f FunctionDetails, ApiKey string) bool {
+    hash := GetFullNameHash(f)
 
-    fi := f.GetInfo()
-    if fi == nil {
+    isThere, _, err := CheckFileForHash(IsAiAwareDb, hash)
+    if err != nil {
+        log.Errorf("Failed to check AI Aware db for hash: %v", err)
+    }
+
+    if isThere {
+        return true;
+    }
+
+    isThere, _, err = CheckFileForHash(NotAiAwareDb, hash)
+    if err != nil {
+        log.Errorf("Failed to check Not AI Aware db for hash: %v", err)
+    }
+
+    if isThere {
         return false
     }
 
-    return fi.GetIsAiAware()
+    // Check if function definition is from the current package. If it is, then its not AI aware
+    if strings.Contains(f.GetFullName(), f.GetInfo().GetPackage().GetResolvedPackageName()) {
+        err := InsertHash(NotAiAwareDb, hash)
+        if err != nil {
+            log.Errorf("failed to insert into %v: %v", NotAiAwareDb, err)
+        }
+
+        return false
+    }
+
+    // Actually check via AI
+    fullMsg := fmt.Sprintf(IsAiAwarePrompt, f.GetFullName())
+    yesOrNo, err := call.Query41Nano(fullMsg, ApiKey, []string{"Yes", "No"})
+    if err != nil { // Not sure I like this
+        log.Errorf("failed to query 4.1 Nano: %v", err)
+        return false
+    }
+
+    // Add it to the proper database so we aren't constantly looking things up
+    if yesOrNo == "Yes" {
+        InsertHash(IsAiAwareDb, hash)
+        if err != nil {
+            log.Errorf("failed to insert into %v: %v", IsAiAwareDb, err)
+        }
+
+        return true
+    }
+
+    InsertHash(NotAiAwareDb, hash)
+    if err != nil {
+        log.Errorf("failed to insert into %v: %v", NotAiAwareDb, err)
+    }
+
+    return false
 }
 
 func IsDocumented(f FunctionDetails) bool {
-    fi := f.GetInfo()
-    if fi == nil {
-        return false
-    }
+    hash := GetFullNameHash(f)
 
-    docs, err := fi.GetDocumentation()
+    isThere, index, err := CheckFileForHash(IsDocumentedDb, hash)
     if err != nil {
+        log.Errorf("Failed to check AI Aware db for hash: %v", err)
+    }
+    
+    // Not in db
+    if ! isThere {
         return false
     }
 
-    return len(docs) > 0
+    // in db and docs loaded
+    if docs, _ := f.GetDocumentation(); docs != "" {
+        return true;
+    }
+
+    // load the docs into the function details
+    docs, err := ReadLine(DocumentationDb, int(index))
+
+    f.SetDocumentation(docs)
+
+    return true
 }
 
 func GetFuncDecl(f FunctionDetails) (FunctionDecl, error) {
@@ -310,7 +390,7 @@ func ToStringForAi(f FunctionNode) (string, error) {
 	return fd_text, nil
 }
 
-func DocumentMST (m MST) (MST, error) {
+func DocumentMST (m MST, ApiKey string) (MST, error) {
     err := m.HandleCyclicDependencies()
     if err != nil {
         return m, fmt.Errorf("failed to handle cyclic dependencies: %v", err)
@@ -319,7 +399,7 @@ func DocumentMST (m MST) (MST, error) {
     for _, pkg := range m.GetPackages() {
         for _, fd := range pkg.GetFunctionDecls() {
 
-            err := Document(fd)
+            err := Document(fd, ApiKey)
             if err != nil {
                 return m, fmt.Errorf("failed to document func %v: %v", fd.GetName(), err)
             }
@@ -329,10 +409,10 @@ func DocumentMST (m MST) (MST, error) {
     return m, nil
 }
 
-func Document(f FunctionDetails) error {
+func Document(f FunctionDetails, ApiKey string) error {
 	// Consider how gpt aware gets loaded
 	// if IsAiAware(f) || IsDocumented(f) || WasDocumented(f) {
-	if IsAiAware(f) || IsDocumented(f) {
+	if IsDocumented(f) || IsAiAware(f, ApiKey) {
 		return nil
 	}
 
@@ -350,9 +430,9 @@ func Document(f FunctionDetails) error {
         // Make sure we have all the nested documentation
         for _, call := range decl.GetCalls() {
             tInfo := call.GetInfo()
-            if !HasDocumentation(tInfo) && !IsAiAware(tInfo) {
+            if !IsDocumented(tInfo) && !IsAiAware(tInfo, ApiKey) {
                 // Recursively document if we need to
-                err := Document(tInfo)
+                err := Document(tInfo, ApiKey)
                 // err := DocumentFunctions(*tInfo)
                 if err != nil {
                     return fmt.Errorf("failed to document call %v in %v: %v", tInfo.GetName(), (f).GetName(), err)
@@ -366,8 +446,11 @@ func Document(f FunctionDetails) error {
                 return fmt.Errorf("failed to convert FunctionNode to AI string: %v", err)
         }
 
+        _ = NodeAsAiText
+        /*
         log.Infof("FunctionNode: %+v", f)
         log.Infof("Node %v as AI text:\n%v", f.GetName(), NodeAsAiText)
+        */
 
         /*
         DocumentationString, err := calls.QueryFromFile(GPT_41_Nano, config.DocsPrompt, NodeAsAiText)
@@ -393,3 +476,178 @@ func Document(f FunctionDetails) error {
 }
 
 
+func CheckFileForHash(filename string, hash [32]byte) (exists bool, index int64, err error) {
+    _ = filename
+    _ = hash
+
+    info, err := os.Stat(filename)
+    if err != nil {
+        if errors.Is(err, os.ErrNotExist) {
+            return false, -1, nil
+        }
+
+        return false, -1, fmt.Errorf("failed to stat %v: %v", filename, err)
+    }
+
+    // hash plus new line
+    const entry_len int64 = 32 + 1
+
+    // No entries
+    if info.Size() < entry_len {
+        return false, -1, nil
+    }
+
+    // Get the number of hashes in the database
+    entries := info.Size() / entry_len // hashes are 32 bytes long
+
+    top := entries - 1;
+    bottom := int64(0);
+
+    f, err := os.Open(filename)
+    if err != nil {
+        return false, -1, fmt.Errorf("failed to open %v: %v", filename, err)
+    }
+    defer f.Close()
+
+    var val = make([]byte, 32);
+
+    for bottom <= top {
+        mid := (top + bottom) / 2
+
+        offset := mid * entry_len
+
+        if _, err := f.ReadAt(val[:], offset); err != nil {
+	    return false, -1, fmt.Errorf("read 32 bytes at %d: %w", offset, err)
+	}
+
+        cmp := bytes.Compare(val[:], hash[:])
+        switch {
+        case cmp == 0:
+            return true, mid, nil
+        case cmp < 0:
+            bottom = mid + 1
+        default:
+            if mid == 0 {
+                    return false, -1, nil
+            }
+            top = mid - 1
+        }
+    }
+
+    return false, -1, nil
+}
+
+// InsertHash keeps file sorted by lexicographic order of 32-byte records (plus newline).
+func InsertHash(filename string, hash [32]byte) error {
+	const entryLen int64 = 32 + 1
+
+	f, err := os.Open(filename)
+        if err != nil {
+            if os.IsNotExist(err) {
+                if err := os.MkdirAll(filepath.Dir(filename), 0755); err != nil {
+                    return fmt.Errorf("mkdir %q: %w", filepath.Dir(filename), err)
+                }
+                if err := os.WriteFile(filename, append(hash[:], '\n'), 0644); err != nil {
+                    return fmt.Errorf("create %q: %w", filename, err)
+                }
+                return nil
+            }
+            return fmt.Errorf("open %q: %w", filename, err)
+        }
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return fmt.Errorf("stat %q: %w", filename, err)
+	}
+	entries := info.Size() / entryLen
+
+	// Binary search for insert position
+	var val [32]byte
+	lo, hi := int64(0), entries-1
+	insertIdx := entries // default: append at end
+	for lo <= hi {
+		mid := (lo + hi) / 2
+		offset := mid * entryLen
+		if _, err := f.ReadAt(val[:], offset); err != nil {
+			return fmt.Errorf("read at %d: %w", offset, err)
+		}
+		cmp := bytes.Compare(val[:], hash[:])
+		if cmp == 0 {
+			// Already exists → nothing to do
+			return nil
+		} else if cmp < 0 {
+			lo = mid + 1
+		} else {
+			insertIdx = mid
+			if mid == 0 {
+				break
+			}
+			hi = mid - 1
+		}
+	}
+
+	// Temp file for rewrite
+	tmpName := filename + ".tmp"
+	tf, err := os.Create(tmpName)
+	if err != nil {
+		return fmt.Errorf("create temp: %w", err)
+	}
+
+	// Copy up to insertion point
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		tf.Close()
+		return err
+	}
+	if _, err := io.CopyN(tf, f, insertIdx*entryLen); err != nil && err != io.EOF {
+		tf.Close()
+		return fmt.Errorf("copy head: %w", err)
+	}
+
+	// Write new entry
+	if _, err := tf.Write(hash[:]); err != nil {
+		tf.Close()
+		return fmt.Errorf("write hash: %w", err)
+	}
+	if _, err := tf.Write([]byte{'\n'}); err != nil {
+		tf.Close()
+		return fmt.Errorf("write newline: %w", err)
+	}
+
+	// Copy tail
+	if _, err := f.Seek(insertIdx*entryLen, io.SeekStart); err != nil {
+		tf.Close()
+		return err
+	}
+	if _, err := io.Copy(tf, f); err != nil {
+		tf.Close()
+		return fmt.Errorf("copy tail: %w", err)
+	}
+
+	if err := tf.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpName, filename)
+}
+
+
+func ReadLine(filename string, lineNum int) (string, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	cur := 1
+	for scanner.Scan() {
+		if cur == lineNum {
+			return scanner.Text(), nil
+		}
+		cur++
+	}
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+	return "", fmt.Errorf("line %d not found", lineNum)
+}

@@ -9,6 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/BlankCanvasStudio/AutoScribe/pkg/types"
+	"github.com/BlankCanvasStudio/AutoScribe/pkg/types/mst"
 )
 
 
@@ -46,6 +47,64 @@ func LoadConfig() error {
     err = Settings.SanityCheck()
     if err != nil {
         return fmt.Errorf("failed to sanity check configs: %v", err)
+    }
+
+    // Set up where we are reading & writing our database from
+    // Man, I hate this. We will definitely need to re-visit the configuration scheme
+    base := IsDocumentedDbBase
+    fullConfig, err := expandPath(fmt.Sprintf("%v/%v", GlobalDatabaseDir, base))
+    if err != nil {
+        return fmt.Errorf("Failed to expand path: %v", err)
+    }
+    if CanWriteFile(fullConfig) {
+        mst.IsDocumentedDb = fullConfig
+    } else {
+        mst.IsDocumentedDb, err = expandPath(fmt.Sprintf("%v/%v", UserDatabaseDir, base))
+        if err != nil {
+            return fmt.Errorf("Failed to expand user path: %v", err)
+        }
+    }
+
+    base = DocumentationDbBase
+    fullConfig, err = expandPath(fmt.Sprintf("%v/%v", GlobalDatabaseDir, base))
+    if err != nil {
+        log.Errorf("Failed to expand path: %v", err)
+    }
+    if CanWriteFile(fullConfig) {
+        mst.DocumentationDb = fullConfig
+    } else {
+        mst.DocumentationDb, err = expandPath(fmt.Sprintf("%v/%v", UserDatabaseDir, base))
+        if err != nil {
+            return fmt.Errorf("Failed to expand user path: %v", err)
+        }
+    }
+
+    base = IsAiAwareDbBase
+    fullConfig, err = expandPath(fmt.Sprintf("%v/%v", GlobalDatabaseDir, base))
+    if err != nil {
+        log.Errorf("Failed to expand path: %v", err)
+    }
+    if CanWriteFile(fullConfig) {
+        mst.IsAiAwareDb = fullConfig
+    } else {
+        mst.IsAiAwareDb, err = expandPath(fmt.Sprintf("%v/%v", UserDatabaseDir, base))
+        if err != nil {
+            return fmt.Errorf("Failed to expand user path: %v", err)
+        }
+    }
+
+    base = NotAiAwareDbBase
+    fullConfig, err = expandPath(fmt.Sprintf("%v/%v", GlobalDatabaseDir, base))
+    if err != nil {
+        log.Errorf("Failed to expand path: %v", err)
+    }
+    if CanWriteFile(fullConfig) {
+        mst.NotAiAwareDb = fullConfig
+    } else {
+        mst.NotAiAwareDb, err = expandPath(fmt.Sprintf("%v/%v", UserDatabaseDir, base))
+        if err != nil {
+            return fmt.Errorf("Failed to expand user path: %v", err)
+        }
     }
 
     return nil
@@ -190,3 +249,11 @@ func PopLoadedConfig() error {
     return nil
 }
 
+func CanWriteFile(path string) bool {
+    f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0644)
+    if err != nil {
+        return false
+    }
+    f.Close()
+    return true
+}
