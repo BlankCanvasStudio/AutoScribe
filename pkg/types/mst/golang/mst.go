@@ -867,11 +867,25 @@ func (f *FunctionDecl) ToStringForAi() (string, error) {
 		if strings.TrimSpace(docs) == "" {
 			continue
 		}
+                docs = UnescapeCommonChars(docs)
 		fd_text = fd_text[:fc_line_no] + " /* " + docs + " */\n " + fd_text[fc_line_no:]
 	}
 
 	return fd_text, nil
 }
+
+func UnescapeCommonChars(s string) string {
+	replacer := strings.NewReplacer(
+		`\\`, `\`,   // backslash
+		`\"`, `"`,   // double quote
+		`\'`, `'`,   // single quote
+		`\n`, "\n",  // newline
+		`\t`, "\t",  // tab
+		`\r`, "\r",  // carriage return
+	)
+	return replacer.Replace(s)
+}
+
 
 func (f *FunctionDecl) PrettyPrint(string) {
 

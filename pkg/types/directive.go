@@ -209,7 +209,17 @@ func (d *Directive) ExecuteRecursiveDirective() error {
             return fmt.Errorf("failed to populate packages: %v", err)
         }
 
-        _, err = mst.DocumentMST(&gMst, d.ApiKey)
+        prompt := d.PromptText
+
+        if d.PromptText == "" {
+            promptBytes, err := os.ReadFile(d.Prompt)
+            if err != nil {
+                return fmt.Errorf("failed to read %v: %v", d.Prompt, err)
+            }
+            prompt = string(promptBytes)
+        }
+
+        _, err = mst.DocumentMST(&gMst, prompt, d.ApiKey)
         if err != nil {
             return fmt.Errorf("failed to document MST: %v", err)
         }

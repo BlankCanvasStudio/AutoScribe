@@ -14,6 +14,7 @@ import (
     log "github.com/sirupsen/logrus"
 
     "github.com/BlankCanvasStudio/AutoScribe/pkg/ai/call"
+    "github.com/BlankCanvasStudio/AutoScribe/pkg/ai/formatting"
 )
 
 var IsDocumentedDb string = fmt.Sprintf("/etc/autoscribe/db/is-documented.txt")
@@ -254,7 +255,7 @@ func IsAiAware(f FunctionDetails, ApiKey string) bool {
 
     // Check if function definition is from the current package. If it is, then its not AI aware
     if strings.Contains(f.GetFullName(), f.GetInfo().GetPackage().GetResolvedPackageName()) {
-        err := InsertHash(NotAiAwareDb, hash)
+        _, err := InsertHash(NotAiAwareDb, hash)
         if err != nil {
             log.Errorf("failed to insert into %v: %v", NotAiAwareDb, err)
         }
@@ -390,7 +391,7 @@ func ToStringForAi(f FunctionNode) (string, error) {
 	return fd_text, nil
 }
 
-func DocumentMST (m MST, ApiKey string) (MST, error) {
+func DocumentMST (m MST, prompt, ApiKey string) (MST, error) {
     err := m.HandleCyclicDependencies()
     if err != nil {
         return m, fmt.Errorf("failed to handle cyclic dependencies: %v", err)
@@ -399,7 +400,7 @@ func DocumentMST (m MST, ApiKey string) (MST, error) {
     for _, pkg := range m.GetPackages() {
         for _, fd := range pkg.GetFunctionDecls() {
 
-            err := Document(fd, ApiKey)
+            err := Document(fd, prompt, ApiKey)
             if err != nil {
                 return m, fmt.Errorf("failed to document func %v: %v", fd.GetName(), err)
             }
@@ -409,7 +410,7 @@ func DocumentMST (m MST, ApiKey string) (MST, error) {
     return m, nil
 }
 
-func Document(f FunctionDetails, ApiKey string) error {
+func Document(f FunctionDetails, prompt, ApiKey string) error {
 	// Consider how gpt aware gets loaded
 	// if IsAiAware(f) || IsDocumented(f) || WasDocumented(f) {
 	if IsDocumented(f) || IsAiAware(f, ApiKey) {
@@ -432,7 +433,7 @@ func Document(f FunctionDetails, ApiKey string) error {
             tInfo := call.GetInfo()
             if !IsDocumented(tInfo) && !IsAiAware(tInfo, ApiKey) {
                 // Recursively document if we need to
-                err := Document(tInfo, ApiKey)
+                err := Document(tInfo, prompt, ApiKey)
                 // err := DocumentFunctions(*tInfo)
                 if err != nil {
                     return fmt.Errorf("failed to document call %v in %v: %v", tInfo.GetName(), (f).GetName(), err)
@@ -446,33 +447,64 @@ func Document(f FunctionDetails, ApiKey string) error {
                 return fmt.Errorf("failed to convert FunctionNode to AI string: %v", err)
         }
 
-        _ = NodeAsAiText
-        /*
-        log.Infof("FunctionNode: %+v", f)
-        log.Infof("Node %v as AI text:\n%v", f.GetName(), NodeAsAiText)
-        */
+        log.Debugf("FunctionNode: %+v", f)
+        log.Debugf("Node %v as AI text:\n%v", f.GetName(), NodeAsAiText)
 
-        /*
-        DocumentationString, err := calls.QueryFromFile(GPT_41_Nano, config.DocsPrompt, NodeAsAiText)
+        fullPrompt := fmt.Sprintf("%v\n---- BEGIN CODE ----\n%v\n---- END CODE ----\n", prompt, NodeAsAiText)
+
+        log.Debugf("Full prompt:\n%v", fullPrompt)
+
+        DocumentationString, err := call.Query41Nano(fullPrompt, ApiKey, nil)
         if err != nil {
-            return fmt.Errorf("failed to query from file: %v", err)
+            return fmt.Errorf("failed to query 4.1 Nano: %v", err)
         }
 
         log.Debugf("result from gpt: `%v`", DocumentationString)
 
         DocumentedComment, err := formatting.FormatAsGoComment(DocumentationString)
         if err != nil {
-                return fmt.Errorf("failed to parse for comments: %v", err)
+            return fmt.Errorf("failed to parse for comments: %v", err)
         }
 
         f.SetDocumentation(DocumentedComment)
-        */
 
-        f.SetDocumentation(f.GetName())
+        hash := GetFullNameHash(f)
+        index, err := InsertHash(IsDocumentedDb, hash)
+        if err != nil {
+            return fmt.Errorf("failed to insert hash for %v in %v: %v", f.GetFullName(), IsDocumentedDb, err)
+        }
 
-        f.SetDocumentedInThisPass(true)
+        // Use a 5MB buffer so we don't read everything into memory
+        err = InsertLineBuffered(DocumentationDb, EscapeCommonChars(DocumentedComment), int(index), 1024 * 1024 * 5)
+        if err != nil {
+            return fmt.Errorf("failed to insert documentation line into documentation db (%v): %v", DocumentationDb, err)
+        }
 
 	return nil
+}
+
+func EscapeCommonChars(s string) string {
+	replacer := strings.NewReplacer(
+		`\`, `\\`,   // backslash
+		`"`, `\"`,   // double quote
+		`'`, `\'`,   // single quote
+		"\n", `\n`,  // newline
+		"\t", `\t`,  // tab
+		"\r", `\r`,  // carriage return
+	)
+	return replacer.Replace(s)
+}
+
+func UnescapeCommonChars(s string) string {
+	replacer := strings.NewReplacer(
+		`\\`, `\`,   // backslash
+		`\"`, `"`,   // double quote
+		`\'`, `'`,   // single quote
+		`\n`, "\n",  // newline
+		`\t`, "\t",  // tab
+		`\r`, "\r",  // carriage return
+	)
+	return replacer.Replace(s)
 }
 
 
@@ -538,30 +570,27 @@ func CheckFileForHash(filename string, hash [32]byte) (exists bool, index int64,
 }
 
 // InsertHash keeps file sorted by lexicographic order of 32-byte records (plus newline).
-func InsertHash(filename string, hash [32]byte) error {
+func InsertHash(filename string, hash [32]byte) (int64, error) {
 	const entryLen int64 = 32 + 1
-
 	f, err := os.Open(filename)
-        if err != nil {
-            if os.IsNotExist(err) {
-                if err := os.MkdirAll(filepath.Dir(filename), 0755); err != nil {
-                    return fmt.Errorf("mkdir %q: %w", filepath.Dir(filename), err)
-                }
-                if err := os.WriteFile(filename, append(hash[:], '\n'), 0644); err != nil {
-                    return fmt.Errorf("create %q: %w", filename, err)
-                }
-                return nil
-            }
-            return fmt.Errorf("open %q: %w", filename, err)
-        }
+	if err != nil {
+		if os.IsNotExist(err) {
+			if err := os.MkdirAll(filepath.Dir(filename), 0755); err != nil {
+				return 0, fmt.Errorf("mkdir %q: %w", filepath.Dir(filename), err)
+			}
+			if err := os.WriteFile(filename, append(hash[:], '\n'), 0644); err != nil {
+				return 0, fmt.Errorf("create %q: %w", filename, err)
+			}
+			return 0, nil // First entry at position 0
+		}
+		return 0, fmt.Errorf("open %q: %w", filename, err)
+	}
 	defer f.Close()
-
 	info, err := f.Stat()
 	if err != nil {
-		return fmt.Errorf("stat %q: %w", filename, err)
+		return 0, fmt.Errorf("stat %q: %w", filename, err)
 	}
 	entries := info.Size() / entryLen
-
 	// Binary search for insert position
 	var val [32]byte
 	lo, hi := int64(0), entries-1
@@ -570,12 +599,12 @@ func InsertHash(filename string, hash [32]byte) error {
 		mid := (lo + hi) / 2
 		offset := mid * entryLen
 		if _, err := f.ReadAt(val[:], offset); err != nil {
-			return fmt.Errorf("read at %d: %w", offset, err)
+			return 0, fmt.Errorf("read at %d: %w", offset, err)
 		}
 		cmp := bytes.Compare(val[:], hash[:])
 		if cmp == 0 {
-			// Already exists → nothing to do
-			return nil
+			// Already exists → return existing position
+			return mid, nil
 		} else if cmp < 0 {
 			lo = mid + 1
 		} else {
@@ -586,48 +615,46 @@ func InsertHash(filename string, hash [32]byte) error {
 			hi = mid - 1
 		}
 	}
-
 	// Temp file for rewrite
 	tmpName := filename + ".tmp"
 	tf, err := os.Create(tmpName)
 	if err != nil {
-		return fmt.Errorf("create temp: %w", err)
+		return 0, fmt.Errorf("create temp: %w", err)
 	}
-
 	// Copy up to insertion point
 	if _, err := f.Seek(0, io.SeekStart); err != nil {
 		tf.Close()
-		return err
+		return 0, err
 	}
 	if _, err := io.CopyN(tf, f, insertIdx*entryLen); err != nil && err != io.EOF {
 		tf.Close()
-		return fmt.Errorf("copy head: %w", err)
+		return 0, fmt.Errorf("copy head: %w", err)
 	}
-
 	// Write new entry
 	if _, err := tf.Write(hash[:]); err != nil {
 		tf.Close()
-		return fmt.Errorf("write hash: %w", err)
+		return 0, fmt.Errorf("write hash: %w", err)
 	}
 	if _, err := tf.Write([]byte{'\n'}); err != nil {
 		tf.Close()
-		return fmt.Errorf("write newline: %w", err)
+		return 0, fmt.Errorf("write newline: %w", err)
 	}
-
 	// Copy tail
 	if _, err := f.Seek(insertIdx*entryLen, io.SeekStart); err != nil {
 		tf.Close()
-		return err
+		return 0, err
 	}
 	if _, err := io.Copy(tf, f); err != nil {
 		tf.Close()
-		return fmt.Errorf("copy tail: %w", err)
+		return 0, fmt.Errorf("copy tail: %w", err)
 	}
-
 	if err := tf.Close(); err != nil {
-		return err
+		return 0, err
 	}
-	return os.Rename(tmpName, filename)
+	if err := os.Rename(tmpName, filename); err != nil {
+		return 0, err
+	}
+	return insertIdx, nil
 }
 
 
@@ -651,3 +678,110 @@ func ReadLine(filename string, lineNum int) (string, error) {
 	}
 	return "", fmt.Errorf("line %d not found", lineNum)
 }
+
+func InsertLineBuffered(filename, content string, lineNum int, bufferSize int) error {
+	if bufferSize <= 0 {
+		bufferSize = 64 * 1024 // 64KB default
+	}
+
+	if lineNum < 0 {
+		return fmt.Errorf("line number must be >= 1, got %d", lineNum)
+	}
+
+        // Treat both 0 and 1 as "insert at beginning"
+        if lineNum == 0 {
+            lineNum = 1
+        }
+
+	file, err := os.Open(filename)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return createFileWithContent(filename, content, lineNum)
+		}
+		return fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	tmpFile, err := os.CreateTemp(filepath.Dir(filename), ".tmp_"+filepath.Base(filename)+"_")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpName := tmpFile.Name()
+	defer os.Remove(tmpName)
+
+	// Use custom buffer sizes
+	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, bufferSize), bufferSize*2)
+	
+	writer := bufio.NewWriterSize(tmpFile, bufferSize)
+	defer writer.Flush()
+
+	currentLine := 1
+	inserted := false
+
+	for scanner.Scan() {
+		if currentLine == lineNum && !inserted {
+			if _, err := writer.WriteString(content + "\n"); err != nil {
+				tmpFile.Close()
+				return fmt.Errorf("failed to write inserted content: %w", err)
+			}
+			inserted = true
+		}
+
+		if _, err := writer.WriteString(scanner.Text() + "\n"); err != nil {
+			tmpFile.Close()
+			return fmt.Errorf("failed to write line %d: %w", currentLine, err)
+		}
+
+		currentLine++
+	}
+
+	if !inserted {
+		if _, err := writer.WriteString(content + "\n"); err != nil {
+			tmpFile.Close()
+			return fmt.Errorf("failed to write appended content: %w", err)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		tmpFile.Close()
+		return err
+	}
+
+	if err := writer.Flush(); err != nil {
+		tmpFile.Close()
+		return err
+	}
+
+	if err := tmpFile.Close(); err != nil {
+		return fmt.Errorf("failed to close temp file: %w", err)
+	}
+
+	return os.Rename(tmpName, filename)
+}
+
+func createFileWithContent(filename, content string, lineNum int) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	defer file.Close()
+
+	writer := bufio.NewWriter(file)
+	defer writer.Flush()
+
+	// Write empty lines if needed
+	for i := 1; i < lineNum; i++ {
+		if _, err := writer.WriteString("\n"); err != nil {
+			return fmt.Errorf("failed to write empty line: %w", err)
+		}
+	}
+
+	// Write the content
+	if _, err := writer.WriteString(content + "\n"); err != nil {
+		return fmt.Errorf("failed to write content: %w", err)
+	}
+
+	return nil
+}
+

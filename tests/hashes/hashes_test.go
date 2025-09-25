@@ -155,27 +155,30 @@ func TestInsertHash(t *testing.T) {
 		base = append(base, h)
 	}
 	sort.Slice(base, func(i, j int) bool { return bytes.Compare(base[i][:], base[j][:]) < 0 })
-
 	// Create temp file with initial data
 	tmp := t.TempDir()
 	filename := tmp + "/hashdb.dat"
 	writeHashes(t, filename, base)
-
+	
 	// Case 1: insert at front
 	front := [32]byte{}
 	copy(front[:], bytes.Repeat([]byte{0x00}, 32))
 	if bytes.Compare(front[:], base[0][:]) >= 0 {
 		front = makeHash(base[0][0] - 1) // ensure smaller than first
 	}
-	if err := mst.InsertHash(filename, front); err != nil {
+	pos, err := mst.InsertHash(filename, front)
+	if err != nil {
 		t.Fatalf("InsertHash(front): %v", err)
+	}
+	if pos != 0 {
+		t.Fatalf("InsertHash(front): expected position 0, got %d", pos)
 	}
 	all := readAllHashes(t, filename)
 	assertSorted(t, all)
 	if ok, _, err := mst.CheckFileForHash(filename, front); err != nil || !ok {
 		t.Fatalf("front not found or error: ok=%v err=%v", ok, err)
 	}
-
+	
 	// Case 2: insert in middle
 	midIdx := len(all) / 2
 	midLo := all[midIdx-1]
@@ -193,15 +196,19 @@ func TestInsertHash(t *testing.T) {
 	if bytes.Compare(mid[:], midHi[:]) >= 0 {
 		mid[31] = midHi[31] - 1
 	}
-	if err := mst.InsertHash(filename, mid); err != nil {
+	pos, err = mst.InsertHash(filename, mid)
+	if err != nil {
 		t.Fatalf("InsertHash(middle): %v", err)
+	}
+	if pos != int64(midIdx) {
+		t.Fatalf("InsertHash(middle): expected position %d, got %d", midIdx, pos)
 	}
 	all = readAllHashes(t, filename)
 	assertSorted(t, all)
 	if ok, _, err := mst.CheckFileForHash(filename, mid); err != nil || !ok {
 		t.Fatalf("middle not found or error: ok=%v err=%v", ok, err)
 	}
-
+	
 	// Case 3: insert at end
 	end := makeHash(0xFF)
 	// ensure strictly greater than current last
@@ -209,19 +216,30 @@ func TestInsertHash(t *testing.T) {
 		end[0] = 0xFF
 		end[31] = 0xFF
 	}
-	if err := mst.InsertHash(filename, end); err != nil {
+	expectedEndPos := int64(len(all))
+	pos, err = mst.InsertHash(filename, end)
+	if err != nil {
 		t.Fatalf("InsertHash(end): %v", err)
+	}
+	if pos != expectedEndPos {
+		t.Fatalf("InsertHash(end): expected position %d, got %d", expectedEndPos, pos)
 	}
 	all = readAllHashes(t, filename)
 	assertSorted(t, all)
 	if ok, _, err := mst.CheckFileForHash(filename, end); err != nil || !ok {
 		t.Fatalf("end not found or error: ok=%v err=%v", ok, err)
 	}
-
+	
 	// Case 4: insert duplicate (should be idempotent)
 	before := readAllHashes(t, filename)
-	if err := mst.InsertHash(filename, before[len(before)/3]); err != nil {
+	duplicateIdx := len(before) / 3
+	duplicate := before[duplicateIdx]
+	pos, err = mst.InsertHash(filename, duplicate)
+	if err != nil {
 		t.Fatalf("InsertHash(duplicate): %v", err)
+	}
+	if pos != int64(duplicateIdx) {
+		t.Fatalf("InsertHash(duplicate): expected position %d, got %d", duplicateIdx, pos)
 	}
 	after := readAllHashes(t, filename)
 	if len(after) != len(before) {
@@ -233,7 +251,7 @@ func TestInsertHash(t *testing.T) {
 func TestInsertHash_CreateIfMissing(t *testing.T) {
 	filename := t.TempDir() + "/new-hashdb.dat"
 	h := makeHash(0x42)
-	if err := mst.InsertHash(filename, h); err != nil {
+	if _, err := mst.InsertHash(filename, h); err != nil {
 		t.Fatalf("InsertHash(create): %v", err)
 	}
 	all := readAllHashes(t, filename)
