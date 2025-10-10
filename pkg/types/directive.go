@@ -224,6 +224,13 @@ func (d *Directive) ExecuteRecursiveDirective() error {
             return fmt.Errorf("failed to document MST: %v", err)
         }
 
+        for _, pkg := range gMst.GetPackages() {
+            err = pkg.UpdateDocsInFile()
+            if err != nil {
+                log.Errorf("Failed to update documentation for %v: %v", pkg.GetPath(), err)
+            }
+        }
+
     } else {
         return fmt.Errorf("cannot parse language %v. not implemented", d.Language)
     }

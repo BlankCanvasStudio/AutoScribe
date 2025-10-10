@@ -654,6 +654,51 @@ func (p *PackageNode) IsMemberFunction(fd *ast.FuncDecl) (*gtypes.Named, bool) {
 	return nil, false
 }
 
+func (p *PackageNode) UpdateDocsInFile() error {
+    decls := p.GetFunctionDecls()
+    for i := len(decls) - 1; i >= 0; i-- {
+        if ! decls[i].GetInfo().GetDocumentedInThisPass() {
+            continue
+        }
+
+        f := decls[i].(*FunctionDecl)
+
+        fd := f.Node
+
+        // We read in pre-existing docs
+        if fd.Doc != nil && strings.TrimSpace(fd.Doc.Text()) != "" {
+            continue
+        }
+
+        start, _ := p.FindStartEnd(fd)
+
+        docs, _ := f.GetDocumentation()
+
+        log.Debugf("Documentation string: %v", docs)
+
+        toAdd := fmt.Sprintf("%v\n", docs)
+
+        err := insertIntoFile(f.GetFile(), start, toAdd)
+        if err != nil {
+            return fmt.Errorf("failed to update docs in file: %v", err)
+        }
+    }
+
+    return nil
+}
+
+func insertIntoFile(path string, offset int, insertion string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	if offset < 0 || offset > len(data) {
+		return fmt.Errorf("offset out of range")
+	}
+	out := append(append([]byte{}, data[:offset]...), append([]byte(insertion), data[offset:]...)...)
+	return os.WriteFile(path, out, 0644)
+}
+
 
 func (f *FunctionInfo) GetInfo() mst.FunctionInfo {
     return f

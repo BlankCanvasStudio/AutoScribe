@@ -70,6 +70,8 @@ type PackageNode interface {
 
     ClipFunctionCycles(FunctionInfo, []string) error   
 
+    UpdateDocsInFile() error
+
     // TypeDefinitions      []*ast.TypeSpec
     PrettyPrint(string)
 }
@@ -479,6 +481,8 @@ func Document(f FunctionDetails, prompt, ApiKey string) error {
         if err != nil {
             return fmt.Errorf("failed to insert documentation line into documentation db (%v): %v", DocumentationDb, err)
         }
+
+        f.GetInfo().SetDocumentedInThisPass(true)
 
 	return nil
 }
