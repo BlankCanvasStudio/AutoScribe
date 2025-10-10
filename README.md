@@ -1,223 +1,184 @@
 # AutoScribe
 
-AutoScribe is a command-line tool designed to automate documentation and directive management within projects. It allows users to create, update, export, and manage custom directives and documentation scopes across multiple configuration files and project directories.
+AutoScribe is a command-line tool designed to facilitate automation and management of code documentation, directives, and configurations. It provides functionalities to create, initialize, update, export, and document code directives and manage configuration files across different scopes (global, user, local).
 
 ---
 
-## Features
+## Purpose
 
-- Create and initialize custom directives from CLI commands
-- Update directive properties and focus/ignore lists
-- Export directives to various configuration files
-- Remove documentation from files and folders
-- Run directives to generate outputs
-- Support for global, user, and local configuration scopes
-- Extensible architecture for custom directive support
-
----
-
-## Dependencies
-
-- Go 1.23.11 or later
-- Modules:
-  - github.com/spf13/cobra
-  - github.com/sirupsen/logrus
-  - gopkg.in/yaml.v3
-  - github.com/openai/openai-go/v2 (for OpenAI API integrations)
+The project enables developers and teams to:
+- Manage custom directives with various attributes (kind, description, prompt, model, etc.).
+- Generate and update documentation across codebases.
+- Export and initialize directives based on existing configurations.
+- Remove documentation from files and folders.
+- Handle configurations across global, user, and local scopes.
+- Seamlessly integrate documentation workflows into development processes.
 
 ---
 
 ## Installation
 
 ### Build from Source
-
-Ensure you have Go installed (version 1.23.11 or newer).
-
-Clone the repository:
+Ensure you have Go 1.23.11 or later installed.
 
 ```bash
 git clone https://github.com/BlankCanvasStudio/AutoScribe.git
 cd AutoScribe
-```
-
-Build the project:
-
-```bash
 make
 ```
 
-This creates the binary `build/autoscribe`.
-
-### Install System-wide
-
+### Install via Makefile
 ```bash
-sudo make install
+make all
 ```
 
-This copies the binary to `/usr/local/bin/autoscribe` and sets up default configuration directories.
+This will generate the `autoscribe` binary in the `build/` directory.
+
+### System-wide Installation
+Once built, copy the binary to a directory in your `$PATH`:
+
+```bash
+sudo cp build/autoscribe /usr/local/bin/
+```
+
+### Dependencies
+- Go modules:
+  - github.com/spf13/cobra
+  - github.com/sirupsen/logrus
+  - gopkg.in/yaml.v3
+  - github.com/openai/openai-go/v2
 
 ---
 
 ## Usage
 
-### Basic Command Structure
+Run `autoscribe` with the desired command and subcommand options.
 
 ```bash
-autoscribe [command] [flags] [args]
+autoscribe --help
 ```
 
-### Global Flags
+### Basic Commands
 
-| Flag             | Short | Description                                              |
-|------------------|--------|----------------------------------------------------------|
-| `--debug`        | `-d`   | Enable verbose debug logging                             |
-| `--global`       | `-g`   | Use global configuration scope                          |
-| `--user`         | `-u`   | Use user-level configuration scope                        |
-| `--local`        | `-l`   | Use local (project) configuration scope                 |
-| `--config <file>`| `-c`   | Specify a custom configuration file                     |
-| `--prompt <text>`| `-p`   | Add extra context to directives prompts                |
+- **Run all directives in scope:**
+  ```bash
+  autoscribe run
+  ```
 
-### Commands
+- **Display version:**
+  ```bash
+  autoscribe version
+  ```
 
-#### Run All Scoped Directives
+### Example: Create a New Directive
 
 ```bash
-autoscribe run
+autoscribe directive create MyDirective prompts/my_prompt.txt
 ```
 
-Runs all directives within the specified scope.
-
-#### Create a New Directive
+### Example: Initialize Directive in Current Project
 
 ```bash
-autoscribe directive create <name> <prompt_file>
+autoscribe directive init MyDirective
 ```
 
-Creates a new directive with a given name and prompt file.
-
-#### Initialize an Existing Directive
+### Example: Export a Directive
 
 ```bash
-autoscribe directive init <directive_name> [files]
+autoscribe directive export MyDirective
 ```
 
-Initializes the directive into the current project, optionally specifying configuration files.
-
-#### Export a Directive
+### Example: Document Files
 
 ```bash
-autoscribe directive export <directive_name> [files]
-```
-
-Exports a directive to specified configuration files.
-
-#### Update Directive Properties
-
-Examples:
-
-```bash
-autoscribe directive kind <directive_name> <text>
-autoscribe directive description <directive_name> <text>
-autoscribe directive scope <directive_name> <text>
-autoscribe directive model <directive_name> <text>
-autoscribe directive output <directive_name> <text>
-autoscribe directive apikey <directive_name> <text>
-autoscribe directive local-docs <directive_name> <path>
-```
-
-Updates the respective property of a directive.
-
-#### Add Focus or Ignore Items
-
-```bash
-autoscribe directive add focus <directive_name> <items>
-autoscribe directive ignore <directive_name> <items>
-```
-
-Adds items to the focus or ignore list of a directive.
-
-#### Manage Server Sources
-
-```bash
-autoscribe directive server <directive_name> <items>
-```
-
-Sets documentation source URLs for a directive.
-
-#### Remove Documentation
-
-```bash
-autoscribe undoc [files / folders]
-```
-
-Removes documentation from specified files or folders.
-
----
-
-## Example Usage
-
-Create a new directive with a prompt file:
-
-```bash
-autoscribe directive create summarize ./prompts/summarize.txt
-```
-
-Initialize an existing directive:
-
-```bash
-autoscribe directive init summarize --config myconfig.yml
-```
-
-Export a directive to config files:
-
-```bash
-autoscribe directive export summarize --config global.yml
-```
-
-Update directive description:
-
-```bash
-autoscribe directive description summarize "This directive summarizes text content"
-```
-
-Run all directives in scope:
-
-```bash
-autoscribe run --global
-```
-
-Remove documentation from files:
-
-```bash
-autoscribe undoc ./src ./docs
+autoscribe undoc ./src
 ```
 
 ---
 
-## Customization
+## Command-Line Options
 
-You can extend functionality by adding new directives in the `config/` directory or by creating custom command handlers through the CLI interface. The architecture is designed to facilitate easy integration and augmentation.
+The tool provides several persistent flags to control scope and configuration behavior:
+
+| Option | Shortcut | Description | Default |
+|---------|------------|----------------|---------|
+| `--debug` | `-d` | Enable debug logging | false |
+| `--global` | `-g` | Use global configuration scope | false |
+| `--user` | `-u` | Use user configuration scope | false |
+| `--local` | `-l` | Use local (current folder) scope | false |
+| `--prompt` | `-p` | Add additional context to directive prompts | "" |
+| `--config` | `-c` | Specify custom configuration file | "" |
+
+These flags influence how configuration files are selected or created, and how directives operate.
 
 ---
 
-## License
+## Architecture & Dependencies
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+The project is organized into several key packages:
+
+- `pkg/cli` — Command-line interface setup and command execution.
+- `pkg/cli/directives` — Management of custom directives including creation, initialization, export, and updates.
+- `pkg/cli/docs` — Documentation management tasks like documenting and removing documentation.
+- `pkg/config` — Handling configuration files across different scopes (global, user, local) including loading and saving configurations.
+- `pkg/types` — Definitions for directives, configuration structures, and related types.
+
+**Dependencies:**
+
+- `cobra` for CLI parsing and command management.
+- `logrus` for structured logging.
+- `yaml.v3` for configuration serialization.
+- `openai` for AI-driven documentation generation (implied).
 
 ---
 
-## Support & Contributions
+## Usage Examples
 
-Contributions are welcome! Please open an issue or pull request on the GitHub repository. For questions, contact the maintainer via the GitHub issues page.
+### Running with Debugging Enabled:
+```bash
+autoscribe --debug run
+```
+
+### Creating a New Directive:
+```bash
+autoscribe directive create EncryptFunction prompts/encrypt_prompt.txt
+```
+
+### Initializing a Directive from Current Config:
+```bash
+autoscribe directive init EncryptFunction
+```
+
+### Exporting a Directive to Configs:
+```bash
+autoscribe directive export EncryptFunction
+```
+
+### Removing Documentation from Files:
+```bash
+autoscribe undoc ./src
+```
 
 ---
 
 ## Notes
 
-- The configuration system supports multiple layers: global, user, and local.
-- The CLI commands are built with cobra and support subcommands and flags for flexible operation.
-- Ensure your configuration files are properly formatted YAML files matching the expected schema.
+- Commands are flexible and can be customized with flags.
+- Directives support attributes that can be programmatically updated via subcommands.
+- Configuration management ensures that settings are scoped appropriately and persisted across different files.
 
 ---
 
-*Happy documenting!*
+## Contribution
+
+Contributions are welcome. Please fork the repository, implement enhancements or fixes, and submit pull requests.
+
+---
+
+## License
+
+This project is licensed under the MIT License.
+
+---
+
+**Happy documenting!**
