@@ -10,6 +10,39 @@ import (
 )
 
 
+/*
+Summary:
+Main entry point for the application. It coordinates configuration loading and the execution of the root command. Specifically:
+- Calls config.LoadConfig() to load and validate configuration.
+- Logs the loaded configuration state.
+- Executes the root command via cli.Execute().
+- Logs final success.
+
+Note: The code contains optional, currently disabled steps for creating database directories and for AST/documentation processing. These are present as commented blocks and are not executed in this version.
+
+Signature:
+func main()
+
+Parameters:
+- None
+
+Returns:
+- None
+
+Errors/Exceptions:
+- If config.LoadConfig() returns an error, the program terminates with log.Fatalf("Failed to load config: %v", err).
+
+Side Effects:
+- Mutates global state via config.LoadConfig() as needed by the application.
+- Produces log output at various levels (Debug, Info).
+- May mutate program state via cli.Execute() and potential global variables.
+
+Edge Cases & Assumptions:
+- Assumes config loading succeeds for normal startup.
+- The AST and database directory creation paths are not active in this version.
+- The behavior depends on external packages (config, log, mst, cli) being initialized elsewhere.
+
+*/
 func main() {
 	err := config.LoadConfig()
 	if err != nil {

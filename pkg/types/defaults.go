@@ -12,4 +12,3 @@ var DefaultLocalDocs = "/opt/autoscribe/docs-database"
 var ProjectDirectory = "./"
 
 var DefaultLanguage = GoLang
-

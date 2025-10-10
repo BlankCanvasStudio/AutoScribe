@@ -16,12 +16,12 @@ directives:
             - ./pkg/types/mst/manipulate
             - ./pkg/types/mst/golang
             - ./pkg/ai/formatting
-    readme:
-        kind: text
-        prompt: /etc/autoscribe/prompts/readme.txt
-        focus:
-            - ./cmd/main.go
-            - ./pkg/cli
-            - Makefile
-            - go.mod
-        model: GPT 4.1 Nano
+    # readme:
+    #     kind: text
+    #     prompt: /etc/autoscribe/prompts/readme.txt
+    #     focus:
+    #         - ./cmd/main.go
+    #         - ./pkg/cli
+    #         - Makefile
+    #         - go.mod
+    #     model: GPT 4.1 Nano
