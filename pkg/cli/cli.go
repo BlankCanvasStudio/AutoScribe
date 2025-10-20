@@ -91,6 +91,19 @@ var runCmd = &cobra.Command{
 	},
 }
 
+var ragDataCmd = &cobra.Command{
+	Use:   "rag",
+	Short: "generate rag data",
+	Long:  `generate rag data`,
+	Run: func(cmd *cobra.Command, args []string) {
+
+            err := docs.CreateRagData("/tmp", 5, args, config.Settings.ApiKey)
+            if err != nil {
+                log.Errorf("Failed to generate RAG data: %v", err)
+            }
+	},
+}
+
 /*
 Summary: Initializes and wires up flags and subcommands on the provided Cobra command. It sets core persistent flags, registers standard commands, generates and attaches custom directive commands, and exposes a documentation command.
 
@@ -148,6 +161,8 @@ func AddFlagsToCmd(in *cobra.Command) {
 	}
 
 	in.AddCommand(docs.UndocCmd)
+
+        in.AddCommand(ragDataCmd)
 }
 
 /*

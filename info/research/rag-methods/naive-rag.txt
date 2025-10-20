@@ -1,0 +1,19 @@
+Using code from: github.com/facebookresearch/DPR.git
+
+Initial chunks are full function definitions, which get truncated down to ~512 tokens
+    - So a lot of material is getting pruned out
+
+Results are about ~22% classification accuracy. Converges almost immediately
+    - Also no validation set, so it SHOULD be over fitting.
+
+I think this is an issue with our chunking strategy. I'm going to research how to adjust that
+    - Unsure if the bert encoder is necessarily the right way to go
+
+I should also check the quality of the questions
+
+I should also trying generating questions with more context
+
+How should I split my questions when they can span multiple chunks?
+
+
+

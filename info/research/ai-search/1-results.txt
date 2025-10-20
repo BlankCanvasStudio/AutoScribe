@@ -1,0 +1,10 @@
+ATTEMPT 1:
+
+Using this paper (https://arxiv.org/pdf/2004.04906) to build first RAG context addition
+
+Going to use AST view to identify parts of code that aren't relevant. Might also use symantic
+analysis of all the documentation to verify
+
+Going to generate data with go code, will train in python, and so some small evals to see how good
+it is
+

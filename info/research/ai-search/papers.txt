@@ -1,0 +1,92 @@
+$ https://arxiv.org/pdf/2412.18819
+
+
+$ https://proceedings.neurips.cc/paper/2020/file/6b493230205f780e1bc26945df7481e5-Paper.pdf
+    !! This is rich with references. Definitely need to deep dive these and more in paper
+    https://arxiv.org/abs/2002.08909
+    https://aclanthology.org/P19-1612/
+    https://arxiv.org/abs/2004.04906
+        ## Definitely read this one next
+    SUMMARY: The basics of RAG really
+
+
+$ https://dl.acm.org/doi/pdf/10.1145/3626772.3657957
+    SUMMARY: Using LLMs to build annotations that can be used to identify relevant documents to
+    pass into a RAG system
+
+
+$ A nice survey in ~2023:
+    !! Definitely deep dive the references in this paper
+    - https://simg.baai.ac.cn/paperfile/25a43194-c74c-4cd3-b60f-0a1f27f8b8af.pdf
+    "Using a graph data index can increase the relevance of the retrieval"
+        - Definitely need to read a shit load more about this
+    LOOK INTO: Alignment module
+    LOOK INTO: Fine tuning embedding & lookup models
+
+
+$ https://arxiv.org/pdf/2004.04906
+    - Great state of the art search scheme using passing and question pairings only
+    !! Definitely need to think of how to integrate this into the system
+    - Their system uses a training set of one positive passage with n negative passages. We can 
+        probably use the AST manipulation as a heuristic for "bad" passages. Could also use the
+        generated documentation
+        $ This is very interesting
+
+
+LOOK INTO: Kendall's Tau Correlation
+
+LOOK INTO: FiD vs IPA for feeding LLMs context
+
+
+https://arxiv.org/pdf/1405.5869
+    - Advanced search embeddings?
+
+https://arxiv.org/pdf/1509.01469
+    - Advanced search embeddings?
+
+https://arxiv.org/pdf/1704.00051
+    - Efficient document retrieval
+
+
+Coding specific RAG:
+    - https://arxiv.org/pdf/2108.11601
+    - https://arxiv.org/pdf/2501.13742
+
+
+Embedding steps for rag. Very important. Need to read:
+    - https://huggingface.co/BAAI/bge-large-en
+    - https://platform.openai.com/docs/guides/embeddings
+
+
+Re-Ranking chosen context to fit the context window
+    - https://huggingface.co/BAAI/bge-reranker-large
+
+LOOK INTO: Prompt compression for RAG
+
+Improving context via LLM supervision:
+    - https://arxiv.org/pdf/2305.17331
+
+LOOK INTO: Calculating cross-attention scores
+
+Chain of thought & RAG:
+    - https://arxiv.org/pdf/2201.11903
+
+Knowledge Graph RAG:
+    - https://arxiv.org/pdf/2305.14322
+    - https://arxiv.org/pdf/2305.18846
+    - https://arxiv.org/pdf/2308.11761
+
+Some AI agent work (?):
+    - https://arxiv.org/pdf/2306.02224
+    - https://arxiv.org/pdf/2310.13243
+
+
+LOOK INTO: LangChain and LLamaIndex
+
+
+
+
+
+
+
+

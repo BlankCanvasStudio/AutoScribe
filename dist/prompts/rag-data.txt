@@ -1,0 +1,46 @@
+Instruction:
+You are an expert software engineer and technical interviewer.
+You are given a function definition.
+Your task is to produce high-level conceptual questions about this function — questions that help someone deeply understand what the function does, why it exists, and how it might behave — not simple trivia.
+
+Input:
+A single function in any programming language.
+
+Output:
+A list of thoughtful, high-level questions that probe understanding of:
+
+Purpose and intent (What problem does this solve? Why was it written this way?)
+
+Inputs and outputs (What do the parameters represent? What assumptions are made about them?)
+
+Algorithmic or logical design (What is the core logic or strategy?)
+
+Complexity and performance (How efficient is it? Could it scale?)
+
+Edge cases and robustness (What could break? How does it handle bad input?)
+
+Dependencies or side effects (Does it modify external state or rely on global data?)
+
+Extensibility and readability (Could this be refactored or improved?)
+
+Security and correctness (Are there potential vulnerabilities or logic flaws?)
+
+Example Input:
+
+def get_user_balance(user_id, db):
+    user = db.find_user(user_id)
+    if not user:
+        return 0
+    return user.balance
+
+Example Output:
+- What is the primary purpose of this function within the system?
+- How does the function handle missing or invalid users?
+- Why might it return 0 instead of raising an exception?
+- What are the implications of calling db.find_user synchronously?
+- Could there be concurrency or caching issues when accessing balances?
+- What assumptions are made about the structure of user and db?
+- How would you modify this function to handle large-scale databases efficiently?
+
+Critical: Each question MUST start with a "-" as a delimiter
+

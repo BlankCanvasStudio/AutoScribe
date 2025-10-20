@@ -1821,7 +1821,11 @@ Edge Cases & Assumptions: Assumes f.Declaration != nil. If f.Declaration is nil,
 
 */
 func (f *FunctionInfo) GetCalls() []mst.FunctionCall {
-	return f.Declaration.GetCalls()
+    if f.Declaration == nil {
+        return nil
+    }
+
+    return f.Declaration.GetCalls()
 }
 
 /*
@@ -2041,7 +2045,11 @@ func (f *FunctionDecl) SetNode() *ast.FuncDecl
 
 */
 func (f *FunctionDecl) GetCalls() []mst.FunctionCall {
-	return f.Calls
+    if f == nil {
+        return nil
+    }
+
+    return f.Calls
 }
 
 /*
@@ -2530,7 +2538,11 @@ Edge Cases & Assumptions: This method delegates to f.Info.GetCalls(); behavior d
 
 */
 func (f *FunctionCall) GetCalls() []mst.FunctionCall {
-	return f.Info.GetCalls()
+    if f.Info == nil {
+        return nil
+    }
+
+    return f.Info.GetCalls()
 }
 
 /*

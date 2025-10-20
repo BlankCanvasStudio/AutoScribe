@@ -1,0 +1,11 @@
+We could use this AST manipulation stuff to redefine a "document" passed into a RAG model?
+    - Do this at the function level guided by the code instead of the file or package level
+
+Using LLMs as a binary classifier (like the events page) is interesting, but that still only maps
+    to what humans find useful, not necessarily LLMs?
+    - Interestingly, this isn't what experimental results show us. It actually works better. Odd
+
+
+
+
+
