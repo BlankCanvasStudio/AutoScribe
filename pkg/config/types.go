@@ -16,46 +16,38 @@ type Config struct {
 }
 
 /*
-Summary
-Validates and normalizes a Config, applying defaults and ensuring each Directive
-is in a usable, consistent state. Use before using a Config to guarantee proper
-initialization and predictable behavior.
+Summary: Validates and normalizes a Config by applying defaults and ensuring required fields for each directive. It also normalizes casing for Model and directive fields, assigns ApiKey from global defaults when missing, and rebuilds the c.Directives map with lower-case directive names. Delegates per-directive validation to Directive.SanityCheck().
 
-Signature
-func (c *Config) SanityCheck() error
+Signature: func (c *Config) SanityCheck() error
 
-Parameters
-- c: *Config — the receiver instance to validate and normalize.
+Parameters:
+- c: *Config — the receiver being validated.
 
-Returns
-- error: non-nil if validation or normalization fails; nil on success.
+Returns:
+- error — non-nil if validation or normalization fails; nil otherwise.
 
-Errors/Exceptions
-- non-nil error if a Directive fails its own SanityCheck; the error is returned with
-  context: "failed to sanity check <name>: <err>".
-- non-nil error when no API key is specified after considering Directive.ApiKey,
-  Config.ApiKey, and Settings.ApiKey: "no api key specified in config for: %v. Perhaps you need to update /etc/autoscribe/conf.yml?".
-- other errors may propagate from directive.SanityCheck() calls.
+Errors/Exceptions:
+- Propagates errors from directive.SanityCheck() with context: "failed to sanity check %v: %v"
+- If a directive has no ApiKey and no ApiKey provided via c.ApiKey or Settings.ApiKey, returns an error message: "no api key specified in config for: %v. Perhaps you need to update /etc/autoscribe/conf.yml?"
+- Other per-directive validation errors are surfaced similarly.
 
-Side Effects
-- Modifies c.Model to lowercase: c.Model = types.Model(strings.ToLower(string(c.Model)))
-- Normalizes directive field values and defaults within c.Directives:
-  - directive.Name is set to lowercase of the original key
-  - directive.Kind defaults to types.DefaultDirective if NoneDirective, then lowercased
-  - directive.ApiKey is filled from directive.ApiKey, c.ApiKey, or Settings.ApiKey
-  - directive.Model is filled from directive.Model, c.Model, Settings.Model, or defaults to DefaultModel
-  - directive.LocalDocs is filled from directive.LocalDocs, c.LocalDocs, Settings.LocalDocs, or defaults to DefaultLocalDocs
-- Rebuilds c.Directives with lowercase keys by replacing each entry
-- Invokes directive.SanityCheck() for each Directive
+Side Effects:
+- Mutates c.Model to lower-case.
+- For each directive:
+  - directive.Name = strings.ToLower(name)
+  - If directive.Kind == NoneDirective, set to DefaultDirective
+  - directive.Kind = types.DirectiveType(strings.ToLower(string(directive.Kind)))
+  - If directive.ApiKey is "", inherits from c.ApiKey or Settings.ApiKey if present; otherwise error.
+  - If directive.Model == "", inherits from c.Model or Settings.Model; otherwise sets to DefaultModel
+  - If directive.LocalDocs == "", inherits from c.LocalDocs or Settings.LocalDocs; otherwise sets to DefaultLocalDocs
+- Rebuilds c.Directives by removing the old key and inserting the updated directive with directive.Name as the key.
+- May return an error from directive.SanityCheck().
 
-Edge Cases & Assumptions
-- If a Directive has no ApiKey and no fallback ApiKey is available, SanityCheck()
-  returns an error as described above.
-- Defaults rely on predefined constants DefaultModel and DefaultLocalDocs; behavior
-  assumes these constants are valid.
-- Settings.* and global defaults are used as fallbacks when a field is not specified on the Directive
-  or Config.
-- If any Directive.SanityCheck() fails, SanityCheck() returns an error for that Directive.
+Edge Cases & Assumptions:
+- If c.Directives is nil or empty, the method completes with nil.
+- If two directives collapse to the same lower-case name, the latter overwrites the former.
+- Defaulting behavior depends on DefaultModel, DefaultLocalDocs, NoModel, and NoneDirective constants.
+- Prompt validation and file existence are handled by Directive.SanityCheck(); PromptText is accepted without file validation.
 
 */
 func (c *Config) SanityCheck() error {
@@ -118,33 +110,21 @@ func (c *Config) SanityCheck() error {
 }
 
 /*
-Summary: PrettyPrint prints a human-readable representation of a Config to standard output for debugging and inspection. It outputs core fields and delegates to each Directive's PrettyPrint method.
+Summary: Pretty-prints the Config to standard output for debugging, displaying top-level fields and the details of each Directive.
+Use this to inspect the current configuration state and its directives during development or troubleshooting.
 
 Signature: func (c *Config) PrettyPrint()
 
-Parameters: none.
+Parameters: none
+Returns: none
 
-Returns: none.
+Errors/Exceptions: none
 
-Errors/Exceptions: none.
-
-Side Effects: writes to standard output via fmt.Println and fmt.Printf.
-
-Behavior details:
-- Prints an initial blank line.
-- Prints:
-  - "Configs: %v" with c.Files
-  - "  ApiKey: %v" with c.ApiKey
-  - "  Model: %v" with c.Model
-  - "  LocalDocs: %v" with c.Model (note: this appears to display Model instead of LocalDocs)
-- Prints an empty line.
-- Iterates over c.Directives and for each element d, calls d.PrettyPrint("  ").
-- Ends with an empty line.
+Side Effects: writes formatted output to standard output via fmt.Println and fmt.Printf; calls d.PrettyPrint("  ") for each directive in c.Directives
 
 Edge Cases & Assumptions:
-- If c.Directives is nil or empty, the loop contributes no output.
-- Each element of c.Directives exposes a PrettyPrint(prefix string) method.
-- The LocalDocs field is printed using c.Model (likely a bug in the code).
+ - If c.Directives is nil or empty, no directive output is produced.
+ - LocalDocs is printed using c.Model due to the code (i.e., "LocalDocs: %v" with c.Model), which may reflect a bug or intentional quirk.
 
 */
 func (c *Config) PrettyPrint() {
@@ -165,11 +145,11 @@ func (c *Config) PrettyPrint() {
 }
 
 /*
-Summary: Creates a new Config value with default initializations: an empty Files slice and an empty Directives map. Use this to obtain a fresh configuration object before populating its fields.
+Summary: NewConfig returns a Config initialized with default empty values, preparing it for population.
 Signature: func NewConfig() Config
-Returns: Config with Files: []string{} and Directives: make(map[string]types.Directive)
-Side Effects: allocates a new slice and a new map; no I/O or external state.
-Edge Cases & Assumptions: Assumes Config has the fields Files []string and Directives map[string]types.Directive; returns a new independent Config value and does not reuse or modify existing state.
+Returns: Config — a new Config where Files is []string{} and Directives is make(map[string]types.Directive).
+Side Effects: allocates a new Config instance and initializes its fields.
+Edge Cases & Assumptions: none; always returns a valid Config with default empty collections.
 
 */
 func NewConfig() Config {

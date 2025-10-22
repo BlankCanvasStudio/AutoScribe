@@ -23,15 +23,10 @@ var AdditionalPrompt string
 var debug bool
 
 /*
-Summary: SetDebug configures the global logging level based on the package-level boolean debug. If debug is true, it enables debug-level logging and logs a "Debug logging enabled" message; otherwise it sets the logging level to info.
+Summary: Configures the global logger based on the package-level debug flag. If debug is true, enables DebugLevel and logs a Debug message; otherwise uses InfoLevel.
 Signature: func SetDebug()
-Parameters: none
-Returns: none
-Errors/Exceptions: none
-Side Effects: modifies the global log level via log.SetLevel; may emit a debug log message when enabling debug
-Edge Cases & Assumptions:
-- relies on a package-scoped bool variable named debug
-- relies on the log package exposing SetLevel, DebugLevel, InfoLevel, and Debug
+Side Effects: mutates the global logger level via log.SetLevel; may emit a debug log entry when enabling.
+Edge Cases & Assumptions: relies on a package-level variable debug (bool) and on an initialized log logger. No return values.
 
 */
 func SetDebug() {
@@ -97,43 +92,41 @@ var ragDataCmd = &cobra.Command{
 	Long:  `generate rag data`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-            err := docs.CreateRagData("/tmp", 5, args, config.Settings.ApiKey)
-            if err != nil {
-                log.Errorf("Failed to generate RAG data: %v", err)
-            }
+		_, err := docs.CreateRagData("/tmp", 5, args, config.Settings.ApiKey)
+		if err != nil {
+			log.Errorf("Failed to generate RAG data: %v", err)
+		}
+	},
+}
+
+var ragCountChunkCmd = &cobra.Command{
+	Use:   "chunk-count",
+	Short: "show length of every chunk pre-rag",
+	Long:  `show length of every chunk pre-rag`,
+	Run: func(cmd *cobra.Command, args []string) {
+
+		err := docs.CreateRagChunkCounts(args, config.Settings.ApiKey)
+		if err != nil {
+			log.Errorf("Failed to generate RAG data: %v", err)
+		}
 	},
 }
 
 /*
-Summary: Initializes and wires up flags and subcommands on the provided Cobra command. It sets core persistent flags, registers standard commands, generates and attaches custom directive commands, and exposes a documentation command.
-
+Summary: Adds persistent flags to the given Cobra command and registers top-level subcommands used by the CLI. This configures debug, config file, and directive-related options, and wires in core commands for execution.
 Signature: func AddFlagsToCmd(in *cobra.Command)
-
 Parameters:
-- in: *cobra.Command — the command to augment with flags and subcommands. The function mutates in in place.
-
-Returns: none
-
+- in: *cobra.Command to which persistent flags are attached and top-level subcommands are added.
+Returns:
+- none
 Errors/Exceptions:
-- This function does not return errors. If creating custom commands fails, it calls log.Fatalf, terminating the process.
-
+- none
 Side Effects:
-- Adds persistent flags to in:
-  - --debug (bool, default false)
-  - --global (-g) (bool)
-  - --user (-u) (bool)
-  - --local (-l) (bool)
-  - --prompt (-p) (string) stored in AdditionalPrompt
-  - --config (-c) (string) stored in CfgFile
-- Adds core commands: runCmd, versionCmd, directives.Cmd
-- Builds and attaches custom directive commands via directives.CreateCustomCommands() and adds them to in
-- Registers docs.UndocCmd
-- May terminate the process via log.Fatalf on error
-
+- mutates in by defining persistent flags and adding subcommands: runCmd, versionCmd, directives.Cmd, docs.UndocCmd, ragDataCmd, ragCountChunkCmd.
+- Logs a debug message when initializing flags.
 Edge Cases & Assumptions:
-- in must be a non-nil pointer to a cobra.Command.
-- directives.CreateCustomCommands() may return an error; in that case the function will terminate the process.
-- The function relies on global variables: debug, AdditionalPrompt, CfgFile, and the presence of runCmd, versionCmd, directives.Cmd, docs.UndocCmd.
+- Assumes runCmd, versionCmd, directives.Cmd, docs.UndocCmd, ragDataCmd, ragCountChunkCmd are defined elsewhere.
+- Assumes debug, AdditionalPrompt, CfgFile are accessible package-level variables.
 
 */
 func AddFlagsToCmd(in *cobra.Command) {
@@ -162,11 +155,12 @@ func AddFlagsToCmd(in *cobra.Command) {
 
 	in.AddCommand(docs.UndocCmd)
 
-        in.AddCommand(ragDataCmd)
+	in.AddCommand(ragDataCmd)
+	in.AddCommand(ragCountChunkCmd)
 }
 
 /*
-Summary: Executes the application's root command after configuring flags and subcommands. It first logs a debug message, calls AddFlagsToCmd(rootCmd) to set up flags and subcommands, then runs rootCmd.Execute(). If execution fails, it terminates the process via log.Fatalf with the encountered error.
+Summary: Initializes the CLI by attaching persistent flags and top-level subcommands to rootCmd and then executes the Cobra command tree. Use at program start to configure and run the CLI.
 
 Signature: func Execute()
 
@@ -174,13 +168,11 @@ Parameters: none
 
 Returns: none
 
-Errors/Exceptions: On error from rootCmd.Execute(), the function terminates the process using log.Fatalf.
+Errors/Exceptions: If rootCmd.Execute() returns an error, the function terminates the process with log.Fatalf("%v", err).
 
-Side Effects: May mutate global state via AddFlagsToCmd(rootCmd); writes to logs; may terminate the process via log.Fatalf on error.
+Side Effects: Logs a debug message, mutates rootCmd by adding persistent flags and subcommands (e.g., runCmd, versionCmd, directives.Cmd, docs.UndocCmd, ragDataCmd, ragCountChunkCmd), and executes the command tree.
 
-Edge Cases & Assumptions:
-- in must be a non-nil pointer to a cobra.Command. (Note: the function relies on rootCmd and AddFlagsToCmd being available.)
-- rootCmd.Execute() may return an error; such errors cause the process to exit via log.Fatalf.
+Edge Cases & Assumptions: Assumes rootCmd is defined and accessible; assumes AddFlagsToCmd is defined elsewhere and wires in the necessary subcommands and flags; may rely on package-level variables such as AdditionalPrompt and CfgFile for configuration.
 
 */
 func Execute() {

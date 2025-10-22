@@ -19,35 +19,34 @@ var Settings Config = Config{
 
 /*
 Summary:
-LoadConfig expands user-relative paths, loads configuration from global, user, and project YAML config files (if present),
-validates and normalizes the resulting configuration, and resolves database path settings by preferring global
-database directories when writable and falling back to user directories otherwise.
+LoadConfig orchestrates configuration initialization. It expands tilde-prefixed paths to absolute locations, loads global, user, and project configuration files in precedence order, validates the combined configuration, and resolves database paths by probing writability and expanding base paths. The function mutates global state and returns an error on failure to perform any step.
 
 Signature:
 func LoadConfig() error
 
 Parameters:
-- None
+- none
 
 Returns:
-- error: non-nil on failure (e.g., path expansion failures, config file load errors, or failed sanity checks); nil on success.
+- error: non-nil if any step fails (path expansion, config loading, or validation); nil on success.
 
 Errors/Exceptions:
 - "failed to resolve user path: %v" if ExpandPaths() fails.
-- Propagates errors from LoadConfigFile(GlobalConfigFile), LoadConfigFile(UserConfigFile), and LoadConfigFile(ProjectConfigFile).
+- Propagated errors from LoadConfigFile(GlobalConfigFile), LoadConfigFile(UserConfigFile), or LoadConfigFile(ProjectConfigFile).
 - "failed to sanity check configs: %v" if Settings.SanityCheck() fails.
-- "Failed to expand path: %v" or "Failed to expand user path: %v" if path expansion of database bases fails.
+- "Failed to expand path: %v" or "Failed to expand user path: %v" if path expansion during database base resolution fails.
+- Other internal expansion errors may propagate similarly.
 
 Side Effects:
-- Mutates global mst fields (IsDocumentedDb, DocumentationDb, IsAiAwareDb, NotAiAwareDb) based on expanded and writability-checked paths.
-- May log debug messages or errors during path expansion.
-- Invokes ExpandPaths, LoadConfigFile for multiple files, and Settings.SanityCheck() which may modify internal state.
+- Mutates global Settings via LoadConfigFile calls.
+- Sets mst.IsDocumentedDb, mst.DocumentationDb, mst.IsAiAwareDb, mst.NotAiAwareDb based on expanded paths and writability checks.
+- May log errors during path resolution.
 
 Edge Cases & Assumptions:
-- ExpandPaths() expands leading "~/" in relevant paths; expandPath handles only paths starting with "~/".
-- LoadConfigFile may be a no-op if a config file is absent; errors from loading present files are surfaced.
-- The function assumes GlobalDatabaseDir, UserDatabaseDir, and the various base constants (IsDocumentedDbBase, DocumentationDbBase, IsAiAwareDbBase, NotAiAwareDbBase) are defined in the package and used to construct candidate database paths.
-- If none of the candidate paths are writable, corresponding mst fields remain unchanged.
+- Precedence: global config loaded first, then user config overrides, then project config, if files exist.
+- expandPath expands only "~/" prefixes; other tilde forms are not handled.
+- If a writable database path cannot be created, alternatives are attempted and may still set an alternate mst field.
+- If the configuration is incomplete, existing Settings and mst values may remain unchanged for those fields.
 
 */
 func LoadConfig() error {
@@ -142,35 +141,29 @@ func LoadConfig() error {
 }
 
 /*
-LoadConfigFile loads and applies configuration from a YAML file specified by filename.
-If the file does not exist, the function performs no action. If stat, read, or parse errors occur,
-it returns a non-nil error.
-
-Signature: func LoadConfigFile(filename string) error
-
+Summary:
+LoadConfigFile reads a YAML configuration file at filename and merges its values into the global Settings.
+If the file does not exist, it is a no-op. Use this to initialize or augment runtime configuration from disk.
+Signature:
+func LoadConfigFile(filename string) error
 Parameters:
-  filename string - path to the YAML config file. If the file does not exist, no action is taken.
-
+- filename: string — path to the YAML config file to load.
 Returns:
-  error - non-nil on failure reading or parsing the file; nil if the file was absent or successfully applied.
-
+- error: non-nil if reading, parsing, or processing the file fails; nil otherwise.
+  - nil when the file does not exist (no-op).
+  - non-nil for read errors, YAML parse errors, or other failures during loading.
 Errors/Exceptions:
-  - If os.Stat(filename) yields an error other than NotExist, returns: "failed to find config %v: %v".
-  - If reading the file fails, returns: "error reading config file: %v".
-  - If YAML unmarshalling fails, returns: "error parsing yaml: %v".
-
+- "failed to find config %v: %v" when os.Stat returns an error other than NotExist.
+- "error reading config file: %v" if os.ReadFile fails.
+- "error parsing yaml: %v" if yaml.Unmarshal fails.
 Side Effects:
-  - Updates global Settings: appends the filename to Settings.Files, and to per-file directive scope via Settings.Directives.
-  - Prefers and applies values from cfg (ApiKey, Model) to Settings when provided.
-  - For each entry in cfg.Directives, merges with any existing directive in Settings.Directives by calling directive.Update(d),
-    then sets directive.Scope to filename and stores the directive in Settings.Directives[name].
-  - Logs a debug message: "Loading config from %v" when a file is loaded.
-
+- Mutates the global Settings (Files, ApiKey, Model, Directives) based on the loaded config.
+- Extends Settings.Directives with directives from the file, setting directive.Scope to filename.
+- Logs a debug message: "Loading config from %v" when a file is loaded.
 Edge Cases & Assumptions:
-  - If cfg.Directives includes a directive that already exists in Settings.Directives, the existing directive is used to fill
-    in missing fields of the loaded directive via directive.Update(d) before storing.
-  - The function assumes Config and related types (Config, Directive, Settings) are defined in the package.
-  - If cfg.ApiKey or cfg.Model are empty, Settings.ApiKey and Settings.Model are not modified.
+- If cfg.ApiKey or cfg.Model are non-empty, they override corresponding Settings values.
+- For cfg.Directives, existing directives in Settings are updated (via Directive.Update) when a matching name exists; otherwise new directives are added with Scope set to filename.
+- If the file exists but is empty or missing expected fields, existing Settings values may remain unchanged.
 
 */
 func LoadConfigFile(filename string) error {
@@ -224,29 +217,30 @@ func LoadConfigFile(filename string) error {
 }
 
 /*
-Summary: Writes the given Config to a YAML file, clearing the Files field beforehand to exclude it from serialization. Use when you need to persist a Config as YAML to disk and ensure the Files data is omitted.
+Summary: Persists a Config to a YAML file at filename, excluding the Files field from the output.
+This is achieved by setting cfg.Files = nil on a local copy before marshaling and writing.
+Use when you need to persist configuration state without the associated Files data.
 
 Signature: func SaveConfigFile(filename string, cfg Config) error
 
 Parameters:
-- filename string: path to the output file. The function writes/overwrites this path with 0644 permissions.
-- cfg Config: configuration to save. The function sets cfg.Files = nil prior to marshaling to exclude Files from the YAML output.
+- filename: string. Path to the YAML file to write.
+- cfg: Config. The value is serialized to YAML after cfg.Files is cleared locally; the Files field is not saved.
 
 Returns:
-- error: non-nil if marshaling or file writing fails. On success, returns nil.
+- error. Non-nil on marshal or write failure; nil on success.
 
 Errors/Exceptions:
-- "failed to marshal config: %v" if yaml.Marshal fails.
-- "failed to write %v: %v" if os.WriteFile fails.
+- "failed to marshal config: %v" if YAML marshaling fails.
+- "failed to write %v: %v" if writing to disk fails.
 
 Side Effects:
-- cfg.Files is set to nil (mutates the provided cfg).
-- Writes YAML data to the specified filename on disk.
+- Writes the YAML representation of cfg to the filesystem at filename with permissions 0644.
+- cfg.Files is set to nil for the duration of the function (local copy only; does not affect caller's cfg).
 
 Edge Cases & Assumptions:
-- Assumes Config can be marshaled by yaml.Marshal.
-- The Files field is intentionally cleared to influence the serialized output.
-- Uses 0644 permissions for the written file; may be affected by OS umask.
+- If filename is empty or the path is unwritable, the function returns an error.
+- All other Config fields are serialized according to the YAML library's rules; Files is intentionally omitted.
 
 */
 func SaveConfigFile(filename string, cfg Config) error {
@@ -264,20 +258,13 @@ func SaveConfigFile(filename string, cfg Config) error {
 }
 
 /*
-Summary: VerifyLocalConfigExists ensures that the local project config file exists on disk. If the file is missing, it creates an empty file at ProjectConfigFile with permissions 0644; if the file already exists, it returns nil without modification. Use during startup or test setup to guarantee a config file is present.
+Summary: Verifies that the local configuration file exists at ProjectConfigFile. If the file is missing, it creates an empty file with mode 0644. If the path already exists, it returns nil. If an error occurs while inspecting the path, it returns that error.
 Signature: func VerifyLocalConfigExists() error
-Returns: error indicating a failure to stat or write the file; otherwise nil.
-Errors/Exceptions:
-- os.Stat returns an error other than os.IsNotExist: the error is returned.
-- The case where the file is missing and os.WriteFile fails: returns a wrapped error with message "failed to write to file: %v", ProjectConfigFile.
-Side Effects:
-- Performs filesystem I/O: Stat on ProjectConfigFile and potentially WriteFile to create the file.
-- May create a new file on disk when it is missing.
-Edge Cases & Assumptions:
-- Assumes ProjectConfigFile is a valid path string.
-- Not synchronized for concurrent calls; a race may occur between Stat and WriteFile if the file is created by another process.
-- If the file exists, function returns nil regardless of current permissions; does not verify writability.
-- If ProjectConfigFile points to a directory or an inaccessible path, os.Stat will return an error which is propagated.
+Parameters: none
+Returns: error — nil on success; non-nil on failure. If the file was missing, a new empty file is created and the function returns nil unless creation fails, in which case an error is returned.
+Errors/Exceptions: - If os.Stat reports an error other than IsNotExist, that error is returned. - If creating the file fails, returns fmt.Errorf("failed to write to file: %v", ProjectConfigFile). - If the path exists, the function returns nil (even if it is a directory); it does not verify the path is a regular file.
+Side Effects: May create the file at ProjectConfigFile with permissions 0644; may write to disk.
+Edge Cases & Assumptions: Assumes ProjectConfigFile is a valid path. The function is idempotent when the file already exists. If ProjectConfigFile exists but is a directory, the function returns nil.
 
 */
 func VerifyLocalConfigExists() error {
@@ -296,18 +283,30 @@ func VerifyLocalConfigExists() error {
 }
 
 /*
-Summary: VerifyUserConfigExists ensures the user config file exists by creating its parent directory
-and the file itself if necessary. Use this before reading or writing UserConfigFile.
+VerifyUserConfigExists ensures that the user configuration file and its parent directory exist.
+It guarantees the parent directory via os.MkdirAll(filepath.Dir(UserConfigFile), 0755) and,
+if the UserConfigFile does not exist, creates an empty file at UserConfigFile with 0644 permissions.
+If the file already exists, the function returns nil. Any filesystem error encountered is returned.
+
 Signature: func VerifyUserConfigExists() error
+
 Parameters: none
-Returns: error
-Errors/Exceptions: returns a non-nil error if the parent directory cannot be created
-or if writing the file fails; otherwise returns nil.
-Side Effects: Creates the parent directory (via os.MkdirAll) and may create UserConfigFile
-as an empty file (via os.WriteFile) when it does not already exist.
-Edge Cases & Assumptions: If os.Stat returns an error other than IsNotExist, that error is returned.
-Assumes UserConfigFile is a path to the configuration file; parent directory will be created with 0755.
-Quotes from code: "ensure parent dir exists" and "check file"
+
+Returns: error — nil on success; non-nil on failure
+
+Errors/Exceptions:
+- "failed to make directories: %v" when directory creation fails
+- "failed to write to file: %v" when creating the empty UserConfigFile fails
+- any error returned by os.Stat other than os.IsNotExist
+
+Side Effects:
+- Creates the parent directory of UserConfigFile if needed
+- Creates an empty file at UserConfigFile if it does not exist
+
+Edge Cases & Assumptions:
+- If UserConfigFile already exists, the function is a no-op and returns nil
+- If UserConfigFile's parent directory cannot be created or the file cannot be written, an error is returned
+- Relies on the global/UserConfigFile and its filesystem permissions; behavior depends on the environment
 
 */
 func VerifyUserConfigExists() error {
@@ -331,26 +330,24 @@ func VerifyUserConfigExists() error {
 }
 
 /*
-Summary: Guarantees the presence of the global configuration path by ensuring the parent directory exists and the file itself exists. It creates the parent directory if needed and, if the file is missing, creates an empty file at GlobalConfigFile.
-
+Summary: Ensures the global configuration file exists by creating its parent directory if missing
+and creating an empty file when absent. Use this before reading or writing the global config to
+guarantee a writable path.
 Signature: func VerifyGlobalConfigExists() error
-
-Returns: error
-  - nil if the required directory and file exist or are created successfully.
-  - non-nil if directory creation or file creation fails, or if os.Stat on GlobalConfigFile returns an error other than IsNotExist.
-
+Parameters: none
+Returns: error — non-nil if the operation fails; nil if the parent directory was created and/or the
+file exists or was created successfully.
 Errors/Exceptions:
-  - "failed to make directories: %v" when MkdirAll fails.
-  - "failed to write to file: %v" when WriteFile fails.
-  - any non-nil error returned by os.Stat when the path exists but an error occurs.
-
-Side Effects:
-  - Creates directories for the parent of GlobalConfigFile with mode 0755.
-  - Creates an empty GlobalConfigFile with mode 0644 if it does not already exist.
-
+  - non-nil from the underlying failure to create directories: "failed to make directories: %v"
+  - non-nil from failing to write the file: "failed to write to file: %v" (with the path GlobalConfigFile)
+  - any non-nil error returned by os.Stat other than IsNotExist
+Side Effects: Creates the parent directory for GlobalConfigFile (with 0755 permissions) and,
+  if the file does not exist, creates GlobalConfigFile with empty content (mode 0644).
 Edge Cases & Assumptions:
-  - If GlobalConfigFile already exists, the function returns nil without modifying the file.
-  - If a non-regular file or an invalid path exists at GlobalConfigFile, errors from the underlying filesystem calls propagate.
+  - If the parent directory already exists, MkdirAll is a no-op.
+  - If GlobalConfigFile already exists, the function leaves it unchanged and returns nil.
+  - The function relies on GlobalConfigFile being a valid path defined elsewhere.
+  - The in-code comments indicate behavior: "ensure parent dir exists" and "check file".
 
 */
 func VerifyGlobalConfigExists() error {
@@ -374,12 +371,19 @@ func VerifyGlobalConfigExists() error {
 var ConfigStack = []Config{}
 
 /*
-Summary: PushLoadedConfig saves the current Settings by appending it to ConfigStack, then resets Settings to a new default configuration by calling NewConfig().
+Summary: Save the current Settings by appending it to ConfigStack, then reset Settings to a new, empty Config via NewConfig.
+
 Signature: func PushLoadedConfig() error
-Returns: error - always nil
-Side Effects: Mutates global state by: 1) ConfigStack is appended with the current Settings; 2) Settings is replaced with the value returned by NewConfig(); may allocate memory for a new Config.
-Edge Cases & Assumptions: Assumes ConfigStack and Settings are defined at package scope and that NewConfig() returns a distinct Config value. After the call, the previous Settings remains in ConfigStack and current Settings points to a fresh configuration.
-Errors/Exceptions: None; the function returns nil unconditionally.
+
+Parameters: none
+
+Returns: error — always nil
+
+Errors/Exceptions: none
+
+Side Effects: mutates package-level state by updating ConfigStack and Settings
+
+Edge Cases & Assumptions: assumes ConfigStack and Settings are package-level variables; relies on NewConfig() to produce a Config with default empty fields; no error handling is performed
 
 */
 func PushLoadedConfig() error {
@@ -390,26 +394,28 @@ func PushLoadedConfig() error {
 }
 
 /*
-Summary: Pops the most recently loaded configuration from ConfigStack and applies it to Settings. Returns an error if the stack is empty.
+Summary:
+Pops the most recently loaded configuration from the global ConfigStack and assigns it to Settings, restoring the previous configuration. Returns an error if the stack is empty.
 
-Signature: func PopLoadedConfig() error
+Signature:
+func PopLoadedConfig() error
 
-Parameters: none
+Parameters:
+- none
 
 Returns:
-  - error: nil on success; non-nil on failure
-  - On failure, the error is fmt.Errorf("can't pop empty config stack")
+- error: nil on success; non-nil on failure
 
 Errors/Exceptions:
-  - can't pop empty config stack
+- error when ConfigStack is empty: "can't pop empty config stack"
 
 Side Effects:
-  - Sets Settings to the popped configuration
-  - Truncates ConfigStack by removing the top element
+- Mutates Settings by restoring the top element of ConfigStack
+- Mutates ConfigStack by removing the top element
 
 Edge Cases & Assumptions:
-  - If ConfigStack is empty, the function returns an error and does not modify Settings.
-  - Assumes ConfigStack is a slice where the last element is the top of the stack.
+- If ConfigStack is empty, no changes to Settings or ConfigStack occur; the error is returned.
+- Assumes ConfigStack and Settings are package-global identifiers available to this function.
 
 */
 func PopLoadedConfig() error {
@@ -424,29 +430,31 @@ func PopLoadedConfig() error {
 }
 
 /*
-Summary:
-CanWriteFile reports whether the current process can write to the file at the given path. It attempts to open the file with write access (creating it if it does not exist) and returns true on success, or false if the open operation fails.
+Summary: CanWriteFile reports whether the current process can create or write to the specified path. It attempts to open path with os.O_WRONLY|os.O_CREATE and file mode 0644; if successful, it closes the file and returns true; otherwise it returns false.
 
-Signature:
-CanWriteFile(path string) bool
+Signature: func CanWriteFile(path string) bool
 
 Parameters:
-  path string - path to the file to test writability. Must be a valid filesystem path.
+- path: string
+  - Role: target file path to test writability.
+  - Constraints: may be non-empty; parent directory must exist; creating the file is allowed.
 
 Returns:
-  bool - true if the file can be opened for writing (os.O_WRONLY|os.O_CREATE) without error; false otherwise.
+- bool
+  - true: the file can be opened for writing (or created) with 0644 permissions.
+  - false: an error occurred while opening the file for writing, or the path is not writable.
 
 Errors/Exceptions:
-  This function does not return errors. All failures are indicated by returning false.
+- None exposed; internal errors cause a false return value.
 
 Side Effects:
-  Attempts to open the file with write permission; may create the file if it does not exist; closes the file immediately after opening.
+- May create the file at path if it does not exist (due to os.O_CREATE).
+- Opens the file for writing briefly and then closes it.
 
 Edge Cases & Assumptions:
-  - If the file already exists but is not writable, this returns false.
-  - There is a potential race condition between opening and subsequent writes if the file is altered by another process.
-  - The created file uses permission 0644 when created.
-  - Empty or invalid paths will cause os.OpenFile to fail and return false.
+- If path refers to a directory, or parent directory does not exist, or write permission is denied, returns false.
+- Existing file is opened for writing without truncation; no data is written by this function.
+- Behavior may vary by OS with respect to file permissions and open semantics.
 
 */
 func CanWriteFile(path string) bool {

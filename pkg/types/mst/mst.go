@@ -401,25 +401,23 @@ func DocumentMST(m MST, prompt, ApiKey string) (MST, error) {
 			}
 		}
 
-
-			// fmt.Println("\n\nWaiting cause its main\n\n")
-			// input, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-			// fmt.Printf("you input: %v\n", input)
+		// fmt.Println("\n\nWaiting cause its main\n\n")
+		// input, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+		// fmt.Printf("you input: %v\n", input)
 	}
 
 	for _, pkg := range m.GetPackages() {
-            if strings.Contains(pkg.GetResolvedPackageName(), "cmd") {
-                for _, decl := range pkg.GetFunctionDecls() {
-                    docs, _ := decl.GetInfo().GetDocumentation()
-                    fmt.Printf("docs: %v\n\n", docs)
-                    for _, decl2 := range decl.GetCalls() {
-                        docs2, err := decl2.GetDocumentation()
-                        fmt.Printf("equality %v: %v\n%v\nError: %v\n\n", decl2.GetName(), docs == docs2, docs2, err)
-                    }
-                }
-            }
-        }
-
+		if strings.Contains(pkg.GetResolvedPackageName(), "cmd") {
+			for _, decl := range pkg.GetFunctionDecls() {
+				docs, _ := decl.GetInfo().GetDocumentation()
+				fmt.Printf("docs: %v\n\n", docs)
+				for _, decl2 := range decl.GetCalls() {
+					docs2, err := decl2.GetDocumentation()
+					fmt.Printf("equality %v: %v\n%v\nError: %v\n\n", decl2.GetName(), docs == docs2, docs2, err)
+				}
+			}
+		}
+	}
 
 	return m, nil
 }

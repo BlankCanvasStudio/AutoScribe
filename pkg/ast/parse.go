@@ -64,31 +64,22 @@ type FunctionInfo struct {
 
 /*
 Summary
-Returns the fully-qualified name of a FunctionInfo. If f.Object is non-empty,
-the result is "Package.Object.Name"; otherwise, it is "Package.Name".
-
+Returns the fully-qualified name for this FunctionInfo.
+If f.Object != "", the result is formatted as "Package.Object.Name"; otherwise, "Package.Name".
 Signature
 func (f *FunctionInfo) FullName() string
-
 Parameters
-- f: *FunctionInfo, receiver providing Package, Object, and Name fields; role: method receiver.
-  Constraints: non-nil when invoked.
-  Note: uses f.Package, f.Object, and f.Name to construct the result.
-
+- f: *FunctionInfo (receiver). The instance used to build the fully-qualified name.
 Returns
-- string: the fully-qualified function name.
-  Behavior:
-  - if f.Object != "" => fmt.Sprintf("%s.%s.%s", f.Package, f.Object, f.Name)
-  - else => fmt.Sprintf("%s.%s", f.Package, f.Name)
-
+- string: the fully-qualified name, either "Package.Object.Name" or "Package.Name".
 Errors/Exceptions
-- none.
-
+- None explicitly returned. May panic if the receiver (f) is nil due to nil dereference.
 Side Effects
-- none.
-
+- None.
 Edge Cases & Assumptions
-- If f.Package or f.Name are empty, the returned string will contain empty segments (e.g., ".Name" or "Package."). No input validation is performed.
+- Assumes the receiver f is non-nil. A nil receiver will cause a panic when accessing f.Package, f.Object, or f.Name.
+- If f.Object is non-empty, the result includes f.Object; otherwise the result omits it.
+- If f.Name is empty, the returned string may end with a trailing dot (e.g., "Package.Name" becomes "Package." when Name is empty).
 
 */
 func (f *FunctionInfo) FullName() string {
@@ -101,27 +92,26 @@ func (f *FunctionInfo) FullName() string {
 
 /*
 Summary
-Returns the fully-qualified name for the FunctionInfo associated with f by delegating to f.Info.FullName().
+Returns the fully-qualified name for the FunctionCall by delegating to the associated FunctionInfo's FullName().
 
 Signature
 func (f *FunctionCall) FullName() string
 
 Parameters
-- f: *FunctionCall, receiver providing access to f.Info; role: method receiver.
-  Constraints: non-nil when invoked.
-  Note: delegates to f.Info.FullName() to compute the result.
+- f: *FunctionCall (receiver). The instance used to obtain the fully-qualified name.
 
 Returns
-- string: the fully-qualified function name, as produced by f.Info.FullName().
+- string: the fully-qualified name, as produced by FunctionInfo.FullName().
 
 Errors/Exceptions
-- none.
+- None explicitly returned. A nil receiver will panic when invoked.
 
 Side Effects
-- none.
+- None.
 
 Edge Cases & Assumptions
-- If f.Info is nil, this will panic at runtime. No nil-check or validation is performed.
+- Assumes f is non-nil. If f.Info is nil, calling f.Info.FullName() will panic.
+- The returned value reflects the logic of FunctionInfo.FullName(): either "Package.Object.Name" (when Object is non-empty) or "Package.Name" (when Object is empty).
 
 */
 func (f *FunctionCall) FullName() string {
@@ -130,26 +120,25 @@ func (f *FunctionCall) FullName() string {
 
 /*
 Summary
-Returns the fully-qualified name of a FunctionDecl by delegating to f.Info.FullName().
+Returns the fully-qualified name for this FunctionDecl by delegating to f.Info.FullName().
 
 Signature
 func (f *FunctionDecl) FullName() string
 
 Parameters
-- f: *FunctionDecl, receiver providing the Info field; role: method receiver.
-  Constraints: non-nil when invoked.
+- f: *FunctionDecl (receiver). The instance used to obtain the fully-qualified name.
 
 Returns
-- string: the fully-qualified function name as produced by f.Info.FullName().
+- string: the fully-qualified name, either "Package.Object.Name" or "Package.Name" as produced by f.Info.FullName().
 
 Errors/Exceptions
-- none.
+- None explicitly returned. May panic if the receiver (f) is nil or if f.Info is nil due to a nil dereference.
 
 Side Effects
-- none.
+- None.
 
 Edge Cases & Assumptions
-- If f.Info is nil, this will panic due to a nil pointer dereference when calling f.Info.FullName().
+- Assumes the receiver f is non-nil and f.Info is non-nil. If f.Object is non-empty, the result includes f.Object; otherwise the result omits it. If f.Info.Name is empty, the result may end with a trailing dot (consistent with FunctionInfo.FullName()).
 
 */
 func (f *FunctionDecl) FullName() string {
@@ -157,32 +146,27 @@ func (f *FunctionDecl) FullName() string {
 }
 
 /*
-Summary:
-PrettyPrint prints a human-readable representation of the FunctionInfo instance and its nested call graph to standard output. It uses the provided prefix for indentation and renders the function identity, file, package, and optional documentation, then recursively prints any called functions.
+Summary: PrettyPrint prints a human-readable representation of a FunctionInfo and its recursive call graph to stdout.
+Use it to inspect a FunctionInfo's metadata (Name, Object, File, Package) and its Documentation, expanding
+into the called functions via f.Declaration.Calls with indentation controlled by prefix.
 
-Signature:
-func (f *FunctionInfo) PrettyPrint(prefix string)
-
+Signature: func (f *FunctionInfo) PrettyPrint(prefix string)
 Parameters:
-- prefix: string — indentation prefix prepended to each line of output. Used to nest nested calls visually (e.g., "\t").
-
-Returns:
-- None. The function prints directly to standard output and does not return values.
-
-Errors/Exceptions:
-- None. The function does not return errors.
-
-Side Effects:
-- Writes to standard output via fmt.Println and fmt.Printf.
-- Recursively prints called functions when f.Declaration is non-nil.
+- prefix: string. Role: indentation and prefix for each line of output; is augmented with a tab ("\t") for nested calls.
+           Constraints: can be any string; initial lines use this value directly.
+Returns: none. The function has a side effect of writing formatted information to stdout.
+Side Effects: writes to standard output using fmt.Println and fmt.Printf; may produce a deeply nested, indented
+              printout of the function call graph through recursive calls.
+Errors/Exceptions: none handled by the function. Assumes f.Declaration and its Calls (and each called.Info) are non-nil
+                  where accessed. If f.Declaration is nil, the function returns after printing header information.
 
 Edge Cases & Assumptions:
-- If f.Object == "" the function prints "<prefix> <Name>"; otherwise it prints "<prefix> <Object>.<Name>".
-- Always prints "File: <f.File>" and "Package: <f.Package>".
-- If f.Documentation != "" it prints "Documentation:" followed by the documentation content.
-- If f.Declaration == nil, the function returns after printing the header.
-- If f.Declaration.Calls contains cycles, this may lead to infinite recursion; no cycle detection is performed.
-- Between sections, the function prints blank lines to improve readability; before each called function it inserts two blank lines and indented output.
+- If f.Object is empty, the first line prints "<prefix> <Name>"; otherwise prints "<prefix> <Object>.<Name>".
+- If f.Documentation is non-empty, it is printed under "Documentation:".
+- If f.Declaration is nil, the function returns after header output; otherwise it iterates over f.Declaration.Calls.
+- Each element of f.Declaration.Calls is expected to have a non-nil called.Info with PrettyPrint; nil pointers would panic.
+- The function performs a depth-first traversal and can recurse infinitely on cyclic call graphs; it assumes an acyclic,
+  well-formed structure.
 
 */
 func (f *FunctionInfo) PrettyPrint(prefix string) {
@@ -214,14 +198,28 @@ func (f *FunctionInfo) PrettyPrint(prefix string) {
 }
 
 /*
-Summary: PrettyPrint prints a human-readable representation of the FunctionDecl by delegating to its associated FunctionInfo.PrettyPrint(prefix) and thus prints the nested call graph.
+Summary: PrettyPrint on FunctionDecl delegates to its embedded FunctionInfo to print a human-readable
+representation of the function and its recursive call graph to stdout. Use this to inspect a FunctionDecl's
+metadata via its Info and to render the call graph.
+
 Signature: func (f *FunctionDecl) PrettyPrint(prefix string)
+
 Parameters:
-- prefix: string — indentation prefix prepended to each line of output to visually nest nested calls (e.g., "\t").
-Returns: none.
-Errors/Exceptions: none returned; may panic if f.Info is nil since it directly calls f.Info.PrettyPrint(prefix).
-Side Effects: Writes output to standard output via the delegated PrettyPrint call.
-Edge Cases & Assumptions: Assumes f.Info is non-nil; behavior and formatting are determined by FunctionInfo.PrettyPrint. No cycle handling is performed by this wrapper.
+- prefix: string. Role: indentation and prefix for each line of output; initial lines use this value directly.
+  The underlying PrettyPrint augments the prefix with a tab for nested calls.
+
+Returns: none. The function prints to standard output through the underlying FunctionInfo.PrettyPrint.
+
+Errors/Exceptions: none explicitly handled. Assumes f.Info is non-nil; if f.Info is nil, this will panic at runtime.
+
+Side Effects: writes to standard output; may produce a deeply nested, indented representation of the function's
+  metadata and its call graph.
+
+Edge Cases & Assumptions:
+- If f.Info is nil, the function will panic.
+- The underlying print traverses the call graph depth-first and may recurse infinitely on cyclic graphs; the
+  structure is assumed to be acyclic or well-formed to avoid this.
+- Output formatting and header details come from the embedded FunctionInfo.PrettyPrint implementation.
 
 */
 func (f *FunctionDecl) PrettyPrint(prefix string) {
@@ -229,29 +227,35 @@ func (f *FunctionDecl) PrettyPrint(prefix string) {
 }
 
 /*
-Summary: Returns a GPT-friendly string representation of the FunctionDecl's source slice, annotated with per-call documentation. It reads the source file from f.Info.File, extracts the portion corresponding to the FunctionDecl, and injects any non-empty Documentation from each FunctionCall into the slice text at the line where that call is located. Use it when you need the function's source context with inline docs for GPT processing.
+Summary: Returns the source text for this FunctionDecl's containing file with
+its FunctionCall docs injected as comments above the corresponding lines.
+Use when you need a GPT-friendly representation of a function declaration
+annotated with the calls' Documentation comments.
 
 Signature: func (f *FunctionDecl) ToStringForGPT() (string, error)
 
-Parameters:
-  - name: f
-    type: *FunctionDecl
-    role: receiver
+Parameters: none
 
 Returns:
-  - string: The annotated source text for the FunctionDecl, with inlined documentation for calls.
-  - error: Non-nil if reading the source file at f.Info.File fails (the error is wrapped as "read file: %w").
+ - string: the source text of the function's file with inserted documentation
+           comments for non-empty f.Calls[i].Info.Documentation.
+ - error: non-nil if the source file cannot be read; otherwise nil.
 
 Errors/Exceptions:
-  - read file: <err> if os.ReadFile(f.Info.File) fails.
+ - read file: error if os.ReadFile(f.Info.File) fails.
+ - Potential runtime panic if FindStartEnd() returns an invalid range (assumes
+   a valid [fd_start, fd_end]).
 
-Side Effects:
-  - Reads the file f.Info.File. No mutation of external state occurs.
+Side Effects: reads the file at f.Info.File; builds and returns a new string
+              with inserted docs (does not modify the file on disk).
 
 Edge Cases & Assumptions:
-  - Assumes f.Info.File is a valid, readable path and f.FindStartEnd() returns valid offsets into that file. If offsets are invalid, behavior is undefined.
-  - Assumes f.Node, f.Info.Package, and f.Calls are initialized; if a call has empty Documentation, nothing is injected for that call.
-  - Insertion order is handled by iterating in reverse to preserve correct offsets when injecting docs as line-prefixed comments.
+ - If f.Calls[i].Info.Documentation is whitespace-only, that call is skipped.
+ - If there are no calls with documentation, the original file text is returned.
+ - Offsets (fd_start, fd_end, fc_start, fc_end, fc_line_no) are assumed to be
+   valid and aligned to the same underlying file text.
+ - Documentation is inserted as a line containing a C-style comment: " /* <docs> */"
+   placed immediately before the line containing the FunctionCall.
 
 */
 func (f *FunctionDecl) ToStringForGPT() (string, error) {
@@ -285,23 +289,19 @@ func (f *FunctionDecl) ToStringForGPT() (string, error) {
 }
 
 /*
-Summary: Returns a GPT-friendly string representation for this FunctionInfo by delegating to f.Declaration.ToStringForGPT(). Use when you need the textual GPT input corresponding to the function's declaration.
+Summary: Returns a GPT-friendly string representation by delegating to f.Declaration.ToStringForGPT(); returns an error if f.Declaration is nil.
 Signature: func (f *FunctionInfo) ToStringForGPT() (string, error)
-Parameters:
-  - name: f
-    type: *FunctionInfo
-    role: receiver
+Parameters: none
 Returns:
-  - string: The result of f.Declaration.ToStringForGPT().
-  - error: Non-nil if the underlying call returns an error, or if f.Declaration is nil.
+  - string: the value returned by f.Declaration.ToStringForGPT().
+  - error: non-nil if f.Declaration is nil or if the underlying ToStringForGPT() returns an error.
 Errors/Exceptions:
-  - "can't convery %v to string for gpt. no delcaration" when f.Declaration == nil (formatted with f.Name).
-  - Propagates any error returned by f.Declaration.ToStringForGPT().
-Side Effects:
-  - None beyond possible evaluation of f.Declaration.ToStringForGPT().
+  - error when f.Declaration == nil: same as produced by the implementation.
+  - propagation of any error from f.Declaration.ToStringForGPT().
+Side Effects: none (no I/O or mutation; simply returns a value or an error).
 Edge Cases & Assumptions:
-  - Assumes f.Declaration may be nil; in that case, an error is returned.
-  - Assumes f.Declaration.ToStringForGPT() handles its internal edge cases.
+  - If f.Declaration == nil, ToStringForGPT() returns an error.
+  - Assumes f.Declaration is a valid, initialized object with ToStringForGPT().
 
 */
 func (f *FunctionInfo) ToStringForGPT() (string, error) {
@@ -313,29 +313,14 @@ func (f *FunctionInfo) ToStringForGPT() (string, error) {
 }
 
 /*
-Summary: Returns the documentation text for a FunctionInfo, preferring the pre-existing
-Documentation and augmenting it with the AST node's doc comment when available.
-
+Summary: Returns the documentation string for a FunctionInfo by using its own Documentation field and, if that is empty, appending the Text from fd.Doc.List (where fd := f.Declaration.Node).
 Signature: func (f *FunctionInfo) GetDocumentation() (string, error)
-
-Parameters:
-- receiver: f *FunctionInfo — method receiver; operates on a FunctionInfo instance.
-- explicit parameters: none.
-
-Returns:
-- (string, error): the assembled documentation text; error is always nil.
-
-Errors/Exceptions:
-- nil error is always returned.
-
-Side Effects:
-- Reads f.Documentation and f.Declaration.Node; does not modify input or global state.
-
-Edge Cases & Assumptions:
-- Assumes f.Declaration.Node is non-nil; otherwise a nil pointer dereference occurs when accessing fd.Doc.
-- If f.Documentation is non-empty, its value is returned as the base docs.
-- If f.Documentation is empty and fd.Doc != nil, each element el.Text in fd.Doc.List is appended with a trailing newline to form the docs.
-- If both f.Documentation is empty and fd.Doc is nil, an empty string is returned.
+Receiver: f *FunctionInfo
+Parameters: none (uses the receiver; no explicit parameters)
+Returns: (string, error) – the accumulated documentation string and nil
+Errors/Exceptions: nil (the function always returns a nil error in current implementation)
+Side Effects: reads f.Documentation and f.Declaration.Node.Doc (and, if applicable, fd.Doc.List to build the result)
+Edge Cases & Assumptions: assumes f.Declaration and f.Declaration.Node are non-nil; if f.Documentation != "" the returned string is that value; if f.Declaration.Node.Doc is nil or f.Documentation != "" no additional lines are appended
 
 */
 func (f *FunctionInfo) GetDocumentation() (string, error) {
@@ -363,25 +348,13 @@ type PackageNode struct {
 }
 
 /*
-Summary: SanityCheck performs a basic sanity check on a PackageNode.
-It iterates over p.Errors to format an error message for each entry, but the
-resulting error values are not used or returned. It then verifies that at least
-one syntax tree is present.
-
+Summary: SanityCheck performs a basic, non-mutating validity check on a PackageNode by ensuring at least one syntax tree exists; it does not propagate or report errors from p.Errors.
 Signature: func (p *PackageNode) SanityCheck() error
-
-Parameters: none. This is a method on *PackageNode.
-
-Returns: error. Non-nil if len(p.Syntax) == 0 (with message "No syntax trees in %v");
-otherwise returns nil.
-
-Errors/Exceptions: Returns fmt.Errorf("No syntax trees in %v", p.ID) when there are no
-syntax trees. The error values created inside the loop are discarded and not returned.
-
-Side Effects: None on p. The loop creates error values that are not used.
-
-Edge Cases & Assumptions: If p.Syntax is nil or empty, the function returns an error.
-The error message uses p.ID; if p.ID is empty, the message includes an empty identifier.
+Parameters: none
+Returns: error - non-nil if len(p.Syntax) == 0, with message "No syntax trees in %v" using p.ID; otherwise nil.
+Errors/Exceptions: "No syntax trees in %v" when there are no syntax trees.
+Side Effects: none (the loop over p.Errors constructs errors that are discarded; no mutation or I/O occurs).
+Edge Cases & Assumptions: If p.ID is empty, the message will reflect that; existing p.Errors are iterated but not propagated.
 
 */
 func (p *PackageNode) SanityCheck() error {
@@ -397,19 +370,40 @@ func (p *PackageNode) SanityCheck() error {
 }
 
 /*
-Summary: PopulatePackageInformation builds the package-wide data by processing each AST file.
-For each element in p.Syntax, it sets p.CurrentFile to the corresponding p.CompiledGoFiles[i] and calls
-AddToImportMap(syn_ast), AddToTypeDefinitions(syn_ast), and AddToFunctionDeclarations(syn_ast) to
-collect imports, type definitions, and function declarations. Returns an error on failure.
-Signature: func (p *PackageNode) PopulatePackageInformation() error
-Parameters: none
-Returns: error — non-nil if per-file processing fails; nil on success.
-Errors/Exceptions: returns fmt.Errorf("failed to add to import map: %v", err) if AddToImportMap fails,
-                  fmt.Errorf("failed to expand type definitions: %v", err) if AddToTypeDefinitions fails,
-                  fmt.Errorf("failed to expand function definitions: %v", err) if AddToFunctionDeclarations fails.
-Side Effects: mutates p.CurrentFile, p.Imports, p.TypeDefinitions, and p.FunctionDeclarations; logs progress.
-Edge Cases & Assumptions: assumes aligned iteration between p.Syntax and p.CompiledGoFiles; relies on helper
-functions to handle their internal edge cases; stops processing on first error.
+PopulatePackageInformation initializes the PackageNode by collecting imports,
+type definitions, and function declarations from the package's syntax trees.
+It iterates over p.Syntax, setting p.CurrentFile to the corresponding
+p.CompiledGoFiles[i], and delegates to AddToImportMap, AddToTypeDefinitions, and
+AddToFunctionDeclarations for each file. Use after parsing to prepare the
+in-memory representation of the package.
+
+Signature
+func (p *PackageNode) PopulatePackageInformation() error
+
+Parameters
+- p: *PackageNode — the receiver; used to mutate import mappings, type definitions, and
+  function declarations.
+
+Returns
+- error: non-nil if any of the processing steps fail while analyzing the syntax trees.
+
+Errors/Exceptions
+- Propagates errors from:
+  - AddToImportMap: e.g., "failed to add to import map: %v"
+  - AddToTypeDefinitions: e.g., "failed to expand type definitions: %v"
+  - AddToFunctionDeclarations: e.g., "failed to expand function definitions: %v"
+
+Side Effects
+- Mutates p.Imports (initializes if nil), p.TypeDefinitions, and p.FunctionDeclarations.
+- Updates p.CurrentFile during processing and emits debug logs.
+- May allocate temporaries and rely on helper functions that inspect and transform ASTs.
+
+Edge Cases & Assumptions
+- If p.Syntax is empty, the function performs no mutations.
+- p.Imports is initialized by AddToImportMap if nil.
+- Each p.Syntax[i] corresponds to p.CompiledGoFiles[i].
+- Assumes valid internal helpers behave as documented and that f or ast nodes are well-formed.
+- This function returns nil only when all per-file processing steps succeed.
 
 */
 func (p *PackageNode) PopulatePackageInformation() error {
@@ -443,18 +437,33 @@ func (p *PackageNode) PopulatePackageInformation() error {
 }
 
 /*
-Summary: Populates p.Imports from the imports in f_ast. For aliased imports, uses the alias as the key and the unquoted path as the value; for non-aliased imports, resolves the default import name with build.Import and uses that name as the key and the path as the value. Initializes p.Imports if nil and returns an error if import resolution fails.
-Signature: func (p *PackageNode) AddToImportMap(f_ast *ast.File) error
+Summary:
+Populate the PackageNode.Imports map with import path mappings from f_ast. For aliased imports,
+use the alias as the map key and the import path as the value. For non-aliased imports, determine
+the default local package name via build.Import and store the path under that name. Initialize
+p.Imports if it is nil. Return an error if resolving any import path via the build system fails.
+
+Signature:
+func (p *PackageNode) AddToImportMap(f_ast *ast.File) error
+
 Parameters:
-- p *PackageNode: receiver; the node to populate.
-- f_ast *ast.File: input AST file whose imports are processed.
-Returns: error; non-nil if import resolution fails.
-Errors/Exceptions: returns fmt.Errorf("failed to build imports: %v", err) when build.Import fails.
-Side Effects: initializes p.Imports if nil; updates p.Imports with import name/path mappings derived from f_ast.Imports.
+- p: *PackageNode — the receiver whose Imports map will be populated.
+- f_ast: *ast.File — the AST of a Go source file containing import declarations.
+
+Returns:
+- error: non-nil if a required import path cannot be resolved by build.Import; nil otherwise.
+
+Errors/Exceptions:
+- Returns fmt.Errorf("failed to build imports: %v", err) when build.Import fails for a non-aliased import.
+
+Side Effects:
+- Mutates p.Imports by inserting entries for each import found in f_ast.
+
 Edge Cases & Assumptions:
-- If imp.Name != nil, p.Imports[imp.Name.Name] = strings.Trim(imp.Path.Value, "\"") is used.
-- If imp.Name == nil, path is unquoted with strings.Trim(imp.Path.Value, "); build.Import(path, "", build.ImportComment) provides the default import name (pkg.Name), which becomes the key for path.
-- On any error from build.Import, the function returns the wrapped error and stops processing further imports.
+- If p.Imports is nil, it is initialized to an empty map.
+- Aliased imports (imp.Name != nil) use the alias name as the key; otherwise, the default package
+  name resolved by build.Import is used as the key.
+- Path strings are trimmed of surrounding quotes when read from f_ast.Imports.
 
 */
 func (p *PackageNode) AddToImportMap(f_ast *ast.File) error {
@@ -484,23 +493,19 @@ func (p *PackageNode) AddToImportMap(f_ast *ast.File) error {
 }
 
 /*
-Summary: Walks the provided AST node f and collects all TypeSpec declarations by appending them to p.TypeDefinitions.
-
+Summary: Collects all *ast.TypeSpec declarations from the given AST node and appends them to p.TypeDefinitions.
+Use when you need to gather type definitions from a parsed file or subtree.
 Signature: func (p *PackageNode) AddToTypeDefinitions(f ast.Node) error
-
 Parameters:
-- f: ast.Node — the root of the AST subtree to inspect for TypeSpec declarations (via ast.Inspect).
-
+  f: ast.Node - the AST node to traverse for TypeSpec declarations.
 Returns:
-- error — always nil in the current implementation.
-
+  error - nil in all cases (no error is produced by this function).
 Side Effects:
-- Appends each found *ast.TypeSpec to p.TypeDefinitions.
-
+  Appends discovered *ast.TypeSpec pointers to p.TypeDefinitions.
 Edge Cases & Assumptions:
-- If f contains no TypeSpec nodes, p.TypeDefinitions remains unchanged.
-- TypeSpec nodes are added in the order encountered during ast.Inspect traversal.
-- p.TypeDefinitions may be nil prior to calls; append handles nil slices gracefully.
+  - If f contains no *ast.TypeSpec nodes, p.TypeDefinitions remains unchanged.
+  - If f is nil, the function is a no-op.
+  - All found TypeSpec nodes within the subtree of f are collected.
 
 */
 func (p *PackageNode) AddToTypeDefinitions(f ast.Node) error {
@@ -517,34 +522,42 @@ func (p *PackageNode) AddToTypeDefinitions(f ast.Node) error {
 }
 
 /*
-Summary:
-Collects function declarations from an AST file and builds corresponding FunctionDecl entries in the PackageNode. For each function, it collects its function invocations, creates FunctionCall nodes, associates them with the function declaration, and appends the resulting FunctionDecl to p.FunctionDeclarations.
+Summary
+Scans the provided AST file f for function declarations, constructs a FunctionDecl for each,
+collects the function invocations within each declaration, converts those invocations into
+FunctionCall nodes, and stores the resulting FunctionDecls in p.FunctionDeclarations. Initializes
+the slice if needed and uses the package's Syntax length as initial capacity.
 
-Signature:
+Signature
 func (p *PackageNode) AddToFunctionDeclarations(f *ast.File) error
 
-Parameters:
-- p: *PackageNode — receiver; the package node to populate. Mutates p.FunctionDeclarations.
-- f: *ast.File — AST file to inspect for function declarations and their bodies. Must be non-nil.
+Parameters
+- p *PackageNode: package context; holds Syntax, FunctionDeclarations, and related state used during processing.
+- f *ast.File: AST of the file to analyze for function declarations and their calls.
 
-Returns:
-- error: non-nil if processing fails (e.g., GetFunctionInvocations fails for a declaration). Returns nil on success.
+Returns
+- error: non-nil if obtaining function invocations for any declaration fails; otherwise nil.
 
-Errors/Exceptions:
+Errors/Exceptions
 - Returns an error if GetFunctionInvocations(decl) fails for any function declaration.
-- May panic if f is nil (precondition not stated in code).
+- May panic or skip if f is nil or if internal helpers encounter unexpected input (as per helper behavior).
 
-Side Effects:
-- Initializes p.FunctionDeclarations if nil.
-- Appends new FunctionDecl entries to p.FunctionDeclarations.
-- May mutate internal state via CreateFunctionDecl and CreateFunctionCall (e.g., updating FunctionMap and FunctionInfo associations).
-- Reads and relies on p.Syntax, and interacts with f.
+Side Effects
+- Mutates p.FunctionDeclarations by initializing (if nil) and appending new FunctionDecls.
+- For each FunctionDecl, sets its Calls field to the slice of FunctionCall nodes derived from the
+  function's invocations.
+- May allocate temporary slices (decl_funcs, invocations, Calls) during processing.
+- Invokes GetFunctionInvocations and CreateFunctionDecl/CreateFunctionCall, which may mutate
+  internal caches or state.
 
-Edge Cases & Assumptions:
-- If no FuncDecls are present in f, the function performs no work.
-- If a function has no invocations, the corresponding Calls slice is empty but attached to the FunctionDecl.
-- CreateFunctionDecl may reuse an existing FunctionInfo from FunctionMap based on FunctionInfo.FullName().
-- f is assumed to be a valid *ast.File; nil handling is not defined beyond typical usage.
+Edge Cases & Assumptions
+- If f contains no function declarations, the method performs no additions.
+- decl_funcs is populated via ast.Inspect, so all function declarations in f are discovered.
+- If a function declaration yields no callable invocations, its Calls will be empty.
+- CreateFunctionCall may return nil for non-call expressions (e.g., type casts); such invocations are skipped.
+- Initializes p.FunctionDeclarations with capacity len(p.Syntax) to optimize allocations; if p.Syntax
+  is nil or empty, capacity may be zero.
+- Assumes f is a valid *ast.File; nil f will cause a runtime panic when dereferenced (as per Go rules).
 
 */
 func (p *PackageNode) AddToFunctionDeclarations(f *ast.File) error {
@@ -597,32 +610,38 @@ func (p *PackageNode) AddToFunctionDeclarations(f *ast.File) error {
 }
 
 /*
-Summary:
-Creates a FunctionDecl for the given ast.FuncDecl. It determines the receiver's named type (if any) using MethodRecvNamed, builds a FunctionInfo, optionally replaces it with a previously-known entry from FunctionMap, and stores the resulting FunctionDecl in memory for later reference. Use when you need to register or retrieve metadata about a function declaration within a PackageNode.
-
-Signature:
+Summary
+Creates a FunctionDecl for the given *ast.FuncDecl on a PackageNode, populating
+FunctionInfo with receiver information (if available), documentation, and
+linking the result into the FunctionMap. Prefers go/types-based receiver
+resolution when possible and falls back to syntactic resolution otherwise.
+Use when you need an internal representation (FunctionDecl) for a method
+declaration within a package.
+Signature
 func (p *PackageNode) CreateFunctionDecl(f *ast.FuncDecl) *FunctionDecl
-
-Parameters:
-- f: *ast.FuncDecl — the function declaration to process; must be non-nil. The function reads f.Name, f.Doc, and may inspect the receiver to determine the associated named type.
-
-Returns:
-- *FunctionDecl — the created declaration object, with Info and Node populated, and Declaration set to the returned FunctionDecl. The function also populates or updates FunctionMap with the resulting FunctionInfo.
-
-Errors/Exceptions:
-- None returned. Note: if f is nil, the method will panic due to dereferencing f.
-
-Side Effects:
-- Mutates FunctionMap by inserting/updating an entry for fInfo.FullName().
-- Mutates fInfo by assigning its Declaration to the created fDecl.
-- May overwrite fInfo with a previously stored FunctionInfo from FunctionMap if a matching FullName() exists.
-- Reads p.CurrentFile and f.Doc to populate documentation fields.
-
-Edge Cases & Assumptions:
-- f may omit a receiver; in that case, Object remains "".
-- The receiver type resolution relies on MethodRecvNamed, and if a named receiver cannot be determined, Object remains "".
-- If f contains documentation (f.Doc.Text()), WasDocumented is set accordingly; Documentation is preserved or overwritten when an existing FunctionInfo is reused.
-- The function assumes f is a valid *ast.FuncDecl with non-nil fields accessed here (e.g., f.Name, f.Doc).
+Parameters
+- p *PackageNode: the package context containing typing information, file context,
+  and maps used to build and register the FunctionDecl.
+- f *ast.FuncDecl: the function declaration to convert; expected to represent a
+  method with a receiver. Must be non-nil.
+Returns
+- *FunctionDecl: the created declaration node, with Info.Declaration pointing back
+  to the created FunctionDecl.
+Errors/Exceptions
+- This function does not return an error. It may return a FunctionDecl with incomplete
+  information if receiver resolution fails (e.g., unnamed or non-named receivers).
+Side Effects
+- Updates or inserts an entry in FunctionMap keyed by fInfo.FullName().
+- Mutates fInfo and fDecl, including setting fInfo.Declaration and linking to the
+  created FunctionDecl. May update fInfo.Documentation and fInfo.File based on
+  f.Doc and the current file context in p.CurrentFile.
+Edge Cases & Assumptions
+- Assumes f != nil and represents a method with a receiver.
+- If MethodRecvNamed(f, p.TypesInfo) yields a named receiver, the receiver's
+  name is stored in fInfo.Object; otherwise Object remains empty.
+- If a pre-existing FunctionInfo exists in FunctionMap for the computed FullName,
+its fields (Documentation, File, WasDocumented) may overwrite the new values
+  accordingly.
 
 */
 func (p *PackageNode) CreateFunctionDecl(f *ast.FuncDecl) *FunctionDecl {
@@ -675,32 +694,30 @@ func (p *PackageNode) CreateFunctionDecl(f *ast.FuncDecl) *FunctionDecl {
 
 /*
 Summary
-Creates a FunctionCall and its associated FunctionInfo from a Go AST CallExpr.
-Handles internal, package, and object calls, and returns nil for non-call expressions
-such as type casts or parenthesized expressions. Reuses or stores FunctionInfo in
-a global FunctionMap when possible.
+Constructs a FunctionCall representation for a given ast.CallExpr within a PackageNode. It determines whether the call is InternalCall, PackageCall, or ObjectCall, populates a corresponding FunctionInfo with resolved names and package/object context, and optionally caches the FunctionInfo by its fully-qualified name. Returns the created *FunctionCall, or nil if the expression is not a resolvable function call (e.g., type casts or parenthesized expressions).
+
 Signature
 func (p *PackageNode) CreateFunctionCall(fun *ast.CallExpr) *FunctionCall
+
 Parameters
-- fun: *ast.CallExpr
-    The call expression to analyze. Non-nil when invoked.
+- p *PackageNode: the package context used to resolve imports, types, and cache FunctionInfo.
+- fun *ast.CallExpr: the AST node representing the function call to process. May be of kinds such as an identifier or a selector expression; may also represent non-call expressions (e.g., type casts or paren-wrapped expressions) which cause nil to be returned.
+
 Returns
-- *FunctionCall
-    A FunctionCall with its Node set to fun and Info populated according to the call kind.
-- nil
-    Returned for ArrayType (type casts) and ParenExpr (parenthesized expressions).
+- *FunctionCall: a new FunctionCall with Node: fun and Info populated to describe the call (Name, ResolvedPkg, Object, etc.). Returns nil if the expression is a type cast or a parenthesized expression that does not correspond to a function call.
+
 Errors/Exceptions
-- log.Fatalf on unexpected fun.Fun types: "Failed to switch types on function %T: %v"
+- May terminate the process via log.Fatalf in the default switch case when fun.Fun has an unsupported type.
+
 Side Effects
-- Mutates FunctionMap by assigning or reusing a FunctionInfo under the key fInfo.FullName()
-- Sets fCall.Info to the derived fInfo
-- May read and use p.TypesInfo, p.Imports, and p.ID
+- May mutate FunctionMap by caching fInfo.FullName() -> fInfo.
+- Sets fCall.Info = fInfo before returning.
+
 Edge Cases & Assumptions
-- If FunctionInfo.FullName() yields a key that already exists in FunctionMap, the existing
-  pointer is reused.
-- If fInfo.Package or fInfo.Name are empty, FullName() may produce strings with empty segments.
-- For package calls, ResolvedPkg is derived from p.Imports; for object calls, ResolvedPkg may be inferred
-  from the object's package path or the type of the receiver if not a named package.
+- Assumes fun is non-nil; passing nil would panic when accessing fun.Fun.
+- For ast.SelectorExpr, distinguishes package calls from object calls by inspecting the underlying object via p.TypesInfo.Uses and related type information.
+- For object calls, attempts to resolve the receiver and its type/name, and fills ResolvedPkg when available.
+- For type casts (ast.ArrayType) orParenExpr cases, returns nil to indicate non-call expressions.
 
 */
 func (p *PackageNode) CreateFunctionCall(fun *ast.CallExpr) *FunctionCall {
@@ -781,19 +798,27 @@ func (p *PackageNode) CreateFunctionCall(fun *ast.CallExpr) *FunctionCall {
 }
 
 /*
-Summary: Clips cyclic graphs by pruning repeated function call entries from each FunctionDeclaration's FunctionInfo. It iterates over p.FunctionDeclarations and invokes ClipFunctionCycles with an empty callStack to prune cycles in place, returning an error if any call fails.
-Signature: func (p *PackageNode) ClipCyclicGraphs() error
-Parameters:
-  - p *PackageNode: receiver; context for pruning. No additional parameters.
-Returns:
-  - error: nil on success; non-nil if a nested ClipFunctionCycles call fails (wrapped as "failed to clip function cycles: %v").
-Errors/Exceptions:
-  - none other than the returned error from ClipFunctionCycles; errors are wrapped and propagated.
-Side Effects:
-  - Mutates the in-memory data structures inside FunctionDeclarations via ClipFunctionCycles (specifically, FunctionInfo.Declaration.Calls is pruned in place).
-Edge Cases & Assumptions:
-  - If p.FunctionDeclarations is nil or empty, this function is a no-op.
-  - Assumes each element of p.FunctionDeclarations provides Info suitable for ClipFunctionCycles; behavior depends on ClipFunctionCycles' handling of nil or missing fields.
+Summary
+ClipCyclicGraphs iterates p.FunctionDeclarations and prunes cyclical function calls by delegating to p.ClipFunctionCycles for each function's FunctionInfo, using a fresh callStack per declaration. It mutates the underlying function-call graph via ClipFunctionCycles and returns any error encountered.
+
+Signature
+func (p *PackageNode) ClipCyclicGraphs() error
+
+Returns
+- error: non-nil if any call to ClipFunctionCycles fails for a declaration; otherwise nil.
+
+Errors/Exceptions
+- None explicitly returned by this function except those propagated from ClipFunctionCycles (wrapped with context on failure).
+- Potential panic if a declaration’s Info is nil and ClipFunctionCycles dereferences it.
+
+Side Effects
+- Mutates p.FunctionDeclarations[*].Info.Calls by removing cycle-inducing entries through ClipFunctionCycles (in place modification).
+
+Edge Cases & Assumptions
+- If p.FunctionDeclarations is nil or empty, the method is a no-op.
+- Assumes p != nil when called; otherwise dereferencing p would panic.
+- Assumes decl.Info (FunctionInfo) is non-nil for safe operation; nil decl.Info may lead to a panic when passed to ClipFunctionCycles.
+- A new callStack []string is created for each declaration to isolate cycle detection per function.
 
 */
 func (p *PackageNode) ClipCyclicGraphs() error {
@@ -809,30 +834,32 @@ func (p *PackageNode) ClipCyclicGraphs() error {
 }
 
 /*
-ClipFunctionCycles removes repeated function call entries from a FunctionInfo by pruning calls in
-f.Declaration.Calls whose fully-qualified names appear on the given callStack. It recursively
-descends into non-cyclic calls, appending the current function's FullName() to the callStack.
-The function uses the inline guide: "Remove the repeated node from the calls array, but don't descend it.
-If you descend it, all the nodes above it will be removed as well (since they've already been included in the list)".
-After traversal, it removes the collected indices from f.Declaration.Calls in reverse order.
-Summary: Prunes cycles/repeats in f.Declaration.Calls by depth-first traversal, updating in-place.
+Summary
+Prunes cyclical function calls within f.Declaration.Calls by tracking a call path in callStack, removing calls that would introduce a cycle, and recursing into callee FunctionInfo for deeper pruning. The function mutates f.Declaration.Calls by removing identified cycle-inducing entries after scanning.
+
 Signature
 func (p *PackageNode) ClipFunctionCycles(f *FunctionInfo, callStack []string) error
+
 Parameters
-- p *PackageNode: receiver; context for pruning.
-- f *FunctionInfo: target function; if f.Declaration == nil, the call is a no-op.
-- callStack []string: current path of fully-qualified names for cycle detection; used to identify repeats.
+- p *PackageNode: the package node whose function graph is being processed.
+- f *FunctionInfo: the function to prune; its Declaration must be non-nil for processing to occur.
+- callStack []string: the current path of fully-qualified function names; used to detect cycles.
+
 Returns
-- error: always nil in this implementation.
+- error: always nil in current implementation (no error paths).
+
 Errors/Exceptions
-- none.
+- None explicitly returned. If f is nil, a nil dereference will occur when accessing f.Declaration.
+
 Side Effects
-- mutates f.Declaration.Calls by removing elements.
+- Mutates f.Declaration.Calls by removing elements identified as cycles.
+
 Edge Cases & Assumptions
-- If f.Declaration is nil, the function returns immediately.
-- Assumes each element of f.Declaration.Calls exposes FullName() and has an Info field; no nil checks
-  are performed on nested structures.
-- Removal is performed in reverse index order to preserve correct positions.
+- If f.Declaration == nil, the function returns immediately (no-op).
+- Assumes f != nil when invoked; nil f would trigger a panic on f.Declaration access.
+- After identifying non-cyclic calls, the function recurses with an extended callStack: append(f.FullName()).
+- The removal of cycle-causing calls is performed after the loop to avoid disturbing iteration.
+- Quoted behavior: "Remove the repeated node from the calls array, but don't descend it. If you descend it, all the nodes above it will be removed as well (since they've already been included in the list)"
 
 */
 func (p *PackageNode) ClipFunctionCycles(f *FunctionInfo, callStack []string) error {
@@ -860,19 +887,29 @@ func (p *PackageNode) ClipFunctionCycles(f *FunctionInfo, callStack []string) er
 }
 
 /*
-Summary: Returns the start and end byte offsets of the given ast.Node within the file associated with p.Fset. Use this when you need to slice source text corresponding to a node.
-Signature: func (p *PackageNode) FindStartEnd(n ast.Node) (int, int)
+Summary:
+Returns the byte-range [start, end) in the source file for the given ast.Node, using p.Fset to map positions to file offsets. If n is nil or the corresponding file cannot be found, returns -1, -1.
+
+Signature:
+func (p *PackageNode) FindStartEnd(n ast.Node) (int, int)
+
 Parameters:
-  n: ast.Node — the node whose byte-range to locate; if n == nil, the function returns -1, -1.
+- n: ast.Node to locate within the file associated with p.Fset.
+
 Returns:
-  start: int — file offset of n.Pos().
-  end: int — file offset of n.End() (the end is the position after the node; suitable for slicing [start:end]).
+- start int: byte offset of the node's start position within the file (inclusive).
+- end int: byte offset of the node's end position within the file (exclusive).
+- If the input is nil or the file cannot be found, both start and end are -1.
+
 Errors/Exceptions:
-  None (no error return). Returns -1, -1 if n == nil or if the corresponding file cannot be found (file == nil).
+- None emitted; failure reported via -1, -1.
+
 Side Effects:
-  Calls p.Fset.File(n.Pos()) to obtain the token.File and uses file.Offset; does not modify state.
+- None.
+
 Edge Cases & Assumptions:
-  If p.Fset.File(n.Pos()) returns nil, returns -1, -1. Assumes p.Fset is initialized and n is a valid ast.Node. End() is treated as the position after the node for safe slicing.
+- If file := p.Fset.File(n.Pos()) is nil, returns -1, -1.
+- Note: End() is the position *after* the node; safe for slicing [start:end].
 
 */
 func (p *PackageNode) FindStartEnd(n ast.Node) (int, int) {
@@ -890,25 +927,15 @@ func (p *PackageNode) FindStartEnd(n ast.Node) (int, int) {
 }
 
 /*
-Summary: Return the absolute byte offset of the start of the line that contains the given AST node n. If n is nil, returns -1.
-
+Summary: Return the absolute byte offset of the start of the line containing the given ast.Node within the PackageNode's FileSet. Use when you need the line start position for a node.
 Signature: func (p *PackageNode) FindLineNo(n ast.Node) int
-
 Parameters:
-- n: ast.Node — the node whose containing line's start offset is computed.
-
+  n: ast.Node - the AST node whose line start offset is sought; if n is nil, the function returns -1.
 Returns:
-- int — the absolute offset (in bytes) of the start of the line containing n.Pos().
-
-Errors/Exceptions:
-- None returned; -1 is returned when n is nil.
-
-Side Effects:
-- None.
-
-Edge Cases & Assumptions:
-- If n == nil, returns -1.
-- Assumes p.Fset and its File(n.Pos()) provide valid position data; relies on File(n.Pos()) and LineStart to compute the offset.
+  int - the absolute offset (in bytes) of the start of the line containing n.Pos(), or -1 when n is nil.
+Errors/Exceptions: none (no error return). Behavior follows token.FileSet semantics.
+Side Effects: none.
+Edge Cases & Assumptions: assumes p.Fset is initialized and that n.Pos() can be resolved by p.Fset; if n is nil, -1 is returned immediately.
 
 */
 func (p *PackageNode) FindLineNo(n ast.Node) int {
@@ -931,19 +958,15 @@ func (p *PackageNode) FindLineNo(n ast.Node) int {
 }
 
 /*
-Summary: Returns the start and end byte offsets of the FunctionDecl's Node within the file associated with f.Info.Package. Use this when you need to slice source text corresponding to a node.
+Summary: Returns the byte-range [start, end) in the source file for this FunctionDecl's AST node by delegating to f.Info.Package.FindStartEnd(f.Node). Use when you need the exact file offsets of a function declaration.
 Signature: func (f *FunctionDecl) FindStartEnd() (int, int)
-Parameters:
-  none
 Returns:
-  start: int — file offset of f.Node.Pos().
-  end: int — file offset of f.Node.End() (the end is the position after the node; suitable for slicing [start:end]).
-Errors/Exceptions:
-  None (no error return). Returns -1, -1 if f.Node == nil or if the corresponding file cannot be found (file == nil).
-Side Effects:
-  No state modifications. Delegates to f.Info.Package.FindStartEnd(f.Node); does not modify state.
-Edge Cases & Assumptions:
-  Assumes f.Info.Package is initialized and f.Node is a valid ast.Node. If f.Node is nil or the underlying file lookup fails, the function returns -1, -1.
+  start int: byte offset (inclusive) of the node's start position within the file.
+  end   int: byte offset (exclusive) of the node's end position within the file.
+  If the node or the associated file cannot be found, both start and end are -1.
+Errors/Exceptions: None emitted; failure indicated by -1, -1.
+Side Effects: None.
+Edge Cases & Assumptions: Assumes f.Node is non-nil and associated with a file via f.Info.Package; if not, returns -1, -1.
 
 */
 func (f *FunctionDecl) FindStartEnd() (int, int) {
@@ -951,16 +974,18 @@ func (f *FunctionDecl) FindStartEnd() (int, int) {
 }
 
 /*
-Summary: Return the absolute byte offset of the start of the line that contains this FunctionDecl's Node.
-          If the FunctionDecl's Node is nil, returns -1. This delegates to f.Info.Package.FindLineNo(f.Node).
+Summary: Return the absolute byte offset of the start of the line containing this FunctionDecl's ast.Node, using the FileSet in f.Info.Package. Use when you need the line-start position for a function node.
 Signature: func (f *FunctionDecl) FindLineNo() int
-Returns: int — the absolute offset (in bytes) of the start of the line containing f.Node.
-          May be -1 if f.Node is nil.
-Errors/Exceptions: None.
-Side Effects: None.
+Parameters:
+  - none
+Returns:
+  int - the absolute offset (in bytes) of the start of the line containing f.Node; -1 if f.Node is nil.
+Errors/Exceptions:
+  none (no error return)
+Side Effects:
+  none
 Edge Cases & Assumptions:
-- If f.Node == nil, returns -1.
-- Assumes f.Info.Package and its data provide valid position data; relies on File(n.Pos()) and LineStart to compute the offset.
+  assumes f.Info and f.Info.Package are initialized; if f.Node is nil, the result follows the underlying FileSet behavior and may be -1.
 
 */
 func (f *FunctionDecl) FindLineNo() int {
@@ -968,15 +993,29 @@ func (f *FunctionDecl) FindLineNo() int {
 }
 
 /*
-Summary: Returns the start and end byte offsets of the ast.Node stored in f.Node within the file associated with f.Info.Package. Use this when you need to slice source text corresponding to a node.
-Signature: func (f *FunctionCall) FindStartEnd() (int, int)
-Parameters: none
+Summary:
+Returns the byte-range [start, end) in the source file for the FunctionCall's Node by delegating to f.Info.Package.FindStartEnd(f.Node). If the node or its file cannot be resolved, returns -1, -1.
+
+Signature:
+func (f *FunctionCall) FindStartEnd() (int, int)
+
+Parameters:
+- None.
+
 Returns:
-  start: int — file offset of f.Node.Pos().
-  end: int — file offset of f.Node.End() (the end is the position after the node; suitable for slicing [start:end])
-Errors/Exceptions: None (no error return). Returns -1, -1 if f.Node == nil or if the corresponding file cannot be found (file == nil).
-Side Effects: None. Delegates to f.Info.Package.FindStartEnd(f.Node); does not modify state.
-Edge Cases & Assumptions: If f.Node is nil, returns -1, -1. Assumes f.Info and f.Node are initialized. End() is treated as the position after the node for safe slicing.
+- start int: byte offset of the node's start position within the file (inclusive).
+- end int: byte offset of the node's end position within the file (exclusive).
+- If the node or the corresponding file cannot be found, both start and end are -1.
+
+Errors/Exceptions:
+- None emitted; failure indicated by -1, -1.
+
+Side Effects:
+- None.
+
+Edge Cases & Assumptions:
+- If the underlying file lookup fails or f.Node is nil, returns -1, -1.
+- Note: End() is the position *after* the node; safe for slicing [start:end].
 
 */
 func (f *FunctionCall) FindStartEnd() (int, int) {
@@ -984,13 +1023,13 @@ func (f *FunctionCall) FindStartEnd() (int, int) {
 }
 
 /*
-Summary: Return the absolute byte offset of the start of the line that contains the FunctionCall's AST node (f.Node). This method delegates to f.Info.Package.FindLineNo(f.Node).
+Summary: Return the absolute byte offset of the start of the line containing this FunctionCall's Node within the PackageNode's FileSet. Use when you need the line start position for a node.
 Signature: func (f *FunctionCall) FindLineNo() int
-Returns: int — the absolute offset (in bytes) of the start of the line containing f.Node.
-Side Effects: None.
-Edge Cases & Assumptions:
-- If f.Node is nil, behavior comes from f.Info.Package.FindLineNo(f.Node).
-- Assumes f.Info.Package provides valid position data and that Package.FindLineNo can compute the line start from f.Node.
+Parameters: none
+Returns: int - the absolute offset (in bytes) of the start of the line containing f.Node, or -1 if f.Node is nil. Delegates to f.Info.Package.FindLineNo(f.Node).
+Errors/Exceptions: none (no error return). Behavior follows token.FileSet semantics.
+Side Effects: none.
+Edge Cases & Assumptions: assumes f.Info.Package is initialized; if f.Node is nil, -1 is returned; assumes f.Node.Pos() can be resolved by the FileSet.
 
 */
 func (f *FunctionCall) FindLineNo() int {
@@ -998,31 +1037,29 @@ func (f *FunctionCall) FindLineNo() int {
 }
 
 /*
-Summary: Updates documentation strings for undocumented function declarations within the package file. It iterates p.FunctionDeclarations in reverse order, skipping any function that already has a non-empty doc comment, computes the start offset of the function node, and inserts f.Info.Documentation (followed by a newline) into the file at f.Info.File at that offset.
+Summary:
+Updates source files by appending documentation strings for function declarations that lack explicit docs. It processes FunctionDeclarations in reverse order, skips those with existing documentation, and inserts the declaration's Documentation string into its source file at the position determined by FindStartEnd.
 
-Signature: func (p *PackageNode) UpdateDocsInFile() error
+Signature:
+func (p *PackageNode) UpdateDocsInFile() error
 
 Parameters:
-  - none (method on *PackageNode)
+- p *PackageNode: receiver; the package node whose function declarations are scanned and updated.
 
 Returns:
-  - error: non-nil if updating the docs in any file fails
+- error: nil on success; non-nil if an update operation fails for any function declaration.
 
 Errors/Exceptions:
-  - Returns an error of the form "failed to update docs in file: %v" when insertIntoFile fails for any function
-  - If a function already has a non-empty doc comment, it is skipped without error
+- Returns a non-nil error if insertIntoFile fails while updating a file, with context "failed to update docs in file: %v".
 
 Side Effects:
-  - Modifies the content of files specified by f.Info.File by inserting documentation text at the function’s start position
-  - May perform file I/O via insertIntoFile and may log debug output
+- Mutates the files identified by f.Info.File by inserting the documentation text at a computed byte offset within the file.
 
 Edge Cases & Assumptions:
-  - If fd.Doc is non-nil and contains non-whitespace text, the function is skipped (no change)
-  - start is obtained via p.FindStartEnd(fd) and used directly as the insertion offset
-  - Assumes p.FindStartEnd(fd) returns a valid start offset and that f.Info.File is accessible for read/write
-  - The inserted text consists of f.Info.Documentation followed by a newline
-Notes:
-  - The code comment indicates: We read in pre-existing docs.
+- Only FunctionDeclarations without existing documentation (fd.Doc == nil or empty) are updated.
+- Insertion position is obtained via start, _ := p.FindStartEnd(fd); insertion may fail if start is -1.
+- The inserted content is f.Info.Documentation followed by a newline.
+- Large files or unusual file permissions may affect behavior via insertIntoFile.
 
 */
 func (p *PackageNode) UpdateDocsInFile() error {
@@ -1053,28 +1090,19 @@ func (p *PackageNode) UpdateDocsInFile() error {
 }
 
 /*
-Summary:
-  Collects all function invocation expressions (*ast.CallExpr) found within the AST subtree rooted at f by traversing with ast.Inspect.
-
-Signature:
-  func GetFunctionInvocations(f ast.Node) ([]*ast.CallExpr, error)
-
+Summary: Returns all function invocation expressions (ast.CallExpr) found within the subtree rooted at f by traversing the AST with ast.Inspect.
+Use when you need to analyze every function call within a given AST node.
+Signature: func GetFunctionInvocations(f ast.Node) ([]*ast.CallExpr, error)
 Parameters:
-  f: ast.Node - root node of the AST to inspect for function calls.
-
+  f: ast.Node — root of the AST subtree to search; input
 Returns:
-  ([]*ast.CallExpr, error) - slice of pointers to ast.CallExpr. The error value is always nil.
-
-Errors/Exceptions:
-  None. This function always returns a nil error.
-
-Side Effects:
-  Allocates and populates a slice with found *ast.CallExpr values; does not mutate the input AST.
-
+  []*ast.CallExpr — all found function invocation expressions, in traversal order
+  error — always nil for this implementation
+Errors/Exceptions: None (function does not currently produce a non-nil error)
+Side Effects: None beyond memory allocation for the result slice; does not modify f or other state
 Edge Cases & Assumptions:
-  - If f contains no function invocations, returns an empty slice.
-  - The returned call expressions appear in the order encountered by ast.Inspect.
-  - If f is nil, the result is an empty slice.
+  - If no function invocations are present, returns an empty []*ast.CallExpr.
+  - Traversal is performed via ast.Inspect over the subtree rooted at f.
 
 */
 func GetFunctionInvocations(f ast.Node) ([]*ast.CallExpr, error) {
@@ -1093,27 +1121,38 @@ func GetFunctionInvocations(f ast.Node) ([]*ast.CallExpr, error) {
 }
 
 /*
-Summary: Returns the receiver's named type for a method declaration, first by inspecting the function object via go/types, and if that fails, by peeling the syntax and resolving through type information (info.Uses). Returns the named type and true when found; otherwise returns nil and false.
+Summary: Determines and returns the receiver type as a *types.Named for a given method
+declaration, if such a named receiver exists. Prefers go/types information when available
+and falls back to syntax-based resolution if needed. Use when you need the concrete
+named receiver type of a method.
+
+The function inspects the method declaration fd and uses info to locate the receiver's
+type. It first tries the go/types-based path, then falls back to syntactic resolution,
+peeling common wrappers around the receiver expression (pointer, parens, index expressions)
+to obtain a named type.
 
 Signature: func MethodRecvNamed(fd *ast.FuncDecl, info *types.Info) (*types.Named, bool)
 
 Parameters:
-- fd: *ast.FuncDecl — the function declaration to inspect; must have a non-nil Recv with at least one element to be considered.
-- info: *types.Info — type information used to resolve the receiver type; may be consulted via info.Defs and info.Uses.
+- fd: *ast.FuncDecl - the function declaration to inspect; must represent a method with a receiver.
+- info: *types.Info - type information used to resolve the receiver; must be non-nil.
 
 Returns:
-- *types.Named — the resolved named receiver type when found.
-- bool — true if a named receiver type was found; false otherwise.
+- *types.Named: the receiver type if it is a named type; otherwise nil.
+- bool: true if a named receiver type was found; false otherwise.
 
-Errors/Exceptions: None. The function returns (nil, false) when a named receiver type cannot be determined.
+Errors/Exceptions: none returned; on failure to determine a named receiver, returns nil, false.
 
-Side Effects: None.
+Side Effects: none.
 
 Edge Cases & Assumptions:
-- If fd is nil, fd.Recv is nil, or fd.Recv.List is empty, the function returns (nil, false).
-- The function first attempts to obtain the receiver type from the function object (info.Defs[fd.Name]); if that yields a signature with a receiver, it unwraps pointer types and returns a *types.Named when applicable.
-- If the first path fails, it peels the receiver expression (handling *T, (T), T[...], etc.) and uses info.Uses to resolve either a *types.TypeName with a *types.Named.
-- When the receiver is a pointer, it unwraps to the element type before checking for a named type.
+- If fd == nil || fd.Recv == nil || len(fd.Recv.List) == 0, returns nil, false.
+- If the receiver is a pointer, the pointer is unwrapped to its Elem before checking for a Named.
+- If the receiver cannot be resolved to a named type (e.g., unnamed or primitive), returns nil, false.
+- When info.Defs[fd.Name] provides a Func with a valid Signature, that path is preferred.
+- If the preferred path fails, the function attempts to resolve via info.Uses by inspecting the
+  receiver expression after peeling wrappers: *ast.StarExpr, *ast.ParenExpr, *ast.IndexExpr,
+  *ast.IndexListExpr.
 
 */
 func MethodRecvNamed(fd *ast.FuncDecl, info *types.Info) (*types.Named, bool) {
@@ -1171,37 +1210,38 @@ func MethodRecvNamed(fd *ast.FuncDecl, info *types.Info) (*types.Named, bool) {
 }
 
 /*
-Summary: ParsePackage locates Go source folders under foldername, loads their packages, builds []PackageNode entries, runs sanity checks, populates package information, and clips cyclic graphs. Use this to obtain a structured representation of packages in a directory tree for documentation or analysis.
+ParsePackage builds in-memory representations of all Go packages under foldername.
 
-Signature: func ParsePackage(foldername string) ([]PackageNode, error)
+It locates folders containing Go source files, loads package data, validates and enriches each PackageNode,
+and prunes cyclic function-call graphs. Use ParsePackage when you need a complete set of PackageNode
+metadata suitable for documentation or static analysis.
+
+Signature:
+func ParsePackage(foldername string) ([]PackageNode, error)
 
 Parameters:
-- foldername: string
-  Path to the root directory to parse for Go packages.
+- foldername string: root folder to scan for Go packages. Must be accessible; errors if inaccessible.
 
 Returns:
-- []PackageNode
-  A slice of PackageNode representing each discovered package.
-- error
-  Non-nil on failure to discover folders, load packages, validate syntax, populate information, or clip cycles.
+- []PackageNode: slice of PackageNode, one per discovered package, in processing order.
+- error: non-nil if an error occurs during directory discovery, package loading, or graph processing. Some steps may return partial results along with an error (notably after SanityCheck or during PopulatePackageInformation or ClipCyclicGraphs).
 
 Errors/Exceptions:
-- "failed to get go directories: %v" if GetNestedFoldersWithGoFiles fails.
-- "failed to load package %v: %v" if packages.Load fails.
-- "failed to sanity check: %v" if PackageNode.SanityCheck fails.
-- "failed to populate package information: %v" if PackageNode.PopulatePackageInformation fails.
-- "failed to clip cyclic graphs: %v" if PackageNode.ClipCyclicGraphs fails.
+- error if GetNestedFoldersWithGoFiles fails to identify folders.
+- error if packages.Load fails to load any package data.
+- error on SanityCheck failure (returns partial pkgNodes and non-nil error).
+- error on PopulatePackageInformation failure (returns partial pkgNodes and non-nil error).
+- error on ClipCyclicGraphs failure (returns nil and non-nil error).
 
 Side Effects:
-- Reads filesystem to locate Go source folders.
-- Logs debug messages via log.Debugf.
-- Mutates PackageNode fields (CurrentFile, Imports, TypeDefinitions, FunctionDeclarations).
-- May deduplicate, populate, and clip data as part of processing.
+- Emits debug logs via log.Debugf.
+- Reads the filesystem to discover folders and load packages.
+- Mutates and returns new pkgNodes; does not modify external state beyond local variables.
 
 Edge Cases & Assumptions:
-- If no folders with Go files are found, returns an empty slice with nil error.
-- Assumes alignment between p.Syntax and p.CompiledGoFiles within each PackageNode.
-- Propagates the first encountered error; processing stops on error.
+- If no Go-containing folders exist, returns an empty []PackageNode with nil error.
+- If a package has no syntax trees, SanityCheck reports an error.
+- Each PackageNode is populated in the same order as discovered packages and assumes a one-to-one correspondence between Syntax and CompiledGoFiles.
 
 */
 func ParsePackage(foldername string) ([]PackageNode, error) {
@@ -1272,38 +1312,35 @@ func ParsePackage(foldername string) ([]PackageNode, error) {
 }
 
 /*
-Summary
-GetNestedFoldersWithGoFiles returns the set of folders under the given folder that contain at least one .go file. The result is sorted and deduplicated. Use this to identify Go source-containing directories within a tree.
+Summary:
+GetNestedFoldersWithGoFiles walks the given folder recursively and returns the set of unique directories that contain at least one .go file. The results are sorted lexicographically.
 
-Signature
+Signature:
 func GetNestedFoldersWithGoFiles(folder string) ([]string, error)
 
-Parameters
+Parameters:
 - folder: string
-  - Path to the root directory to search for Go source files.
+  Root folder to search from.
 
-Returns
-- []string
-  - A sorted slice of absolute directory paths that contain at least one .go file. Each path is the directory containing a Go file.
-- error
-  - Non-nil if an error occurred while walking the directory tree or while resolving file paths.
+Returns:
+- ([]string, error)
+  - []string: absolute directory paths that contain at least one .go file, sorted lexicographically.
+  - error: non-nil if an error occurs during traversal or path resolution.
 
-Errors/Exceptions
-- If filepath.WalkDir returns an error, the function returns an empty slice and an error formatted as:
-  fmt.Errorf("failed to walk directory for go files: %v", err)
-- If filepath.Abs(path) fails for any encountered Go file, that error is returned and the walk stops.
+Errors/Exceptions:
+- error if filepath.WalkDir encounters a traversal error.
+- error if obtaining the absolute path for a discovered .go file fails.
 
-Side Effects
+Side Effects:
 - Logs a debug message via log.Debugf("folders searching: %v", folder).
-- Reads the filesystem to locate .go files.
-- Populates and updates an internal seen map to deduplicate directories.
-- Sorts the resulting list before returning.
+- Reads the filesystem; uses a seen map to deduplicate directories.
 
-Edge Cases & Assumptions
-- If no .go files are found, the function returns an empty slice and nil error.
-- Only files with the extension ".go" are considered; other file types are ignored.
-- Directories are returned as absolute paths, derived from the directory of each Go file.
-- The results are deduplicated using a map and then converted to a sorted slice.
+Edge Cases & Assumptions:
+- Only files with extension ".go" are considered; other files are ignored.
+- Directories containing multiple .go files are reported once.
+- Returned paths are absolute; the final slice is sorted before returning.
+- If no .go files are found, an empty slice is returned.
+- If folder does not exist or is inaccessible, an error is returned from WalkDir.
 
 */
 func GetNestedFoldersWithGoFiles(folder string) ([]string, error) {

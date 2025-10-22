@@ -12,33 +12,39 @@ import (
 )
 
 /*
-Summary: Initializes a directive within the local configuration scope by examining the provided configFiles, loading and merging
-configuration data, and persisting the updated directive into the project configuration. Use when you need to ensure a given
-directive is established in the current local scope based on existing configuration files.
+Summary: Initialize a directive within the local configuration scope by loading, merging, and
+persisting directive data from a sequence of config files. The function searches the provided
+configFiles for a directive with the given name, augments its Focus with toFocus, and saves the
+updated directive to config.ProjectConfigFile. Use this to constrain a directive to a set of
+configurations while preserving global settings.
 
 Signature: func InitDirectiveInLocalScope(directive types.Directive, toFocus []string, configFiles []string) error
 
 Parameters:
-- directive: types.Directive — the directive to initialize in the local scope.
-- toFocus: []string — additional focus items to attach to the directive during processing.
-- configFiles: []string — ordered list of configuration file paths to consult for initialization.
+- directive: types.Directive — the directive to initialize and scope locally.
+- toFocus: []string — additional focus items to append to the directive's Focus when saving.
+- configFiles: []string — ordered config file paths to search for the directive.
 
 Returns:
-- error — non-nil on failure; nil on success.
+- error: nil on success; non-nil if initialization fails (e.g., directive not found in provided configs,
+  or saving the updated configuration fails).
 
 Errors/Exceptions:
-- Returns an error if the directive cannot be loaded from any of the configFiles.
-- Propagates errors from config operations (PushLoadedConfig, LoadConfigFile, PopLoadedConfig, SaveConfigFile) as encountered.
+- Non-nil errors returned if pushing/popping loaded configs or saving the config fail.
+- If the directive cannot be found in any of the configFiles, returns an error indicating the failure.
 
 Side Effects:
-- Mutates global configuration state via config.PushLoadedConfig, config.LoadConfigFile, and config.SaveConfigFile.
-- Updates config.Settings.Directives and may modify config.Settings.Files and directive.Scope.
-- May write updated project configuration to disk.
+- Mutates package-level ConfigStack and Settings via PushLoadedConfig, LoadConfigFile, and PopLoadedConfig.
+- Writes the updated Settings to config.ProjectConfigFile via SaveConfigFile.
+- Logs progress and results to the logger (e.g., Debug/Info messages).
 
 Edge Cases & Assumptions:
-- Assumes config.Settings.Directives uses directive.Name as the key and supports updates/merges via directive operations.
-- If the directive already exists in the current settings, the function may exit early with no changes.
-- Relies on the presence and behavior of config.ProjectConfigFile for project-scope persistence.
+- If the directiveName is already initialized in the initial ProjectConfigFile, the function returns nil
+  without changes.
+- Assumes ConfigStack and Settings are package-global identifiers; config.ProjectConfigFile is the target
+  persistence file.
+- If a configFile does not define the directive, the function continues with the next file; if none do, it
+  returns an error.
 
 */
 func InitDirectiveInLocalScope(directive types.Directive, toFocus []string, configFiles []string) error {
@@ -127,22 +133,28 @@ func InitDirectiveInLocalScope(directive types.Directive, toFocus []string, conf
 }
 
 /*
-Summary: Exports a custom directive by normalizing its fields and persisting it across the provided config files. It resets certain fields on the directive copy, then for each config file it pushes the current Settings onto the ConfigStack, loads the file into Settings, stores the updated directive under Settings.Directives[directive.Name], and saves the updated Settings to the file.
+Summary: Exports a given Directive into a set of configuration files by loading each file into the global Settings, normalizing the directive, and persisting the updated directive to each file. For each configFile, it pushes the currently loaded config, loads the file, then stores the updated directive under toAdd.Name and saves the full Settings to the file.
+
 Signature: func ExportCustomDirective(directive types.Directive, configFiles []string) error
+
 Parameters:
-- directive: types.Directive - the directive to export; its Name identifies the entry in Settings.Directives to update.
-- configFiles: []string - paths to config files to which the updated Settings will be written.
+- directive: types.Directive — the directive to export; its corresponding entry in config.Settings.Directives is used as the base.
+- configFiles: []string — list of config file paths to which the directive should be exported.
+
 Returns:
-- error: non-nil on failure; errors from SaveConfigFile are wrapped as "Failed to create new directive: %v".
+- error: non-nil if persisting to any configFile fails; nil if all files are updated successfully.
+
 Errors/Exceptions:
-- Non-nil if config.SaveConfigFile returns an error (wrapped as described above).
+- If config.SaveConfigFile(configFile, config.Settings) fails for any configFile, returns an error of the form "Failed to create new directive: %v".
+
 Side Effects:
-- Mutates global config.Settings (including config.Settings.Directives) and per-file directive scope.
-- Calls config.PushLoadedConfig(), config.LoadConfigFile(string), and config.SaveConfigFile(string, Config).
+- Mutates package-level state via config.PushLoadedConfig and config.LoadConfigFile (per file) and config.Settings.Directives.
+- Writes YAML configuration to disk for each configFile.
+
 Edge Cases & Assumptions:
-- Assumes directive.Name exists in config.Settings.Directives; the directive is read, then its Focus, Ignore, Model, ApiKey, and Scope are reset.
-- If configFiles is empty, no files are written and the function returns nil.
-- Assumes the Config type can be serialized to YAML by SaveConfigFile and that updating Settings.Directives persists as intended.
+- If a config file does not exist, LoadConfigFile behaves as a no-op, allowing iteration to continue.
+- If directive.Name is not present in config.Settings.Directives, toAdd will be the zero-value Directive; the code stores it using toAdd.Name as the key.
+- toAdd.Focus, toAdd.Ignore, toAdd.Model, toAdd.ApiKey, and toAdd.Scope are reset before export.
 
 */
 func ExportCustomDirective(directive types.Directive, configFiles []string) error {
@@ -176,26 +188,25 @@ func ExportCustomDirective(directive types.Directive, configFiles []string) erro
 }
 
 /*
-Summary: SetField sets the field named by name on the struct pointed to by obj to value, using reflection. It supports both direct and pointer fields and will assign or convert values when possible. Use it to set fields by name at runtime.
+Summary: SetField uses reflection to assign a value to the field named by name on the struct pointed to by obj.
+Use when you need to set a struct field by name at runtime, with type-safety checks.
 Signature: func SetField(obj any, name string, value any) error
 Parameters:
-- obj: any; must be a non-nil pointer to a struct
-- name: string; name of the exported field to set
-- value: any; new value to assign; may be of the field's type, a convertible type, or for pointer fields, the element type or a *T matching the field type
-Returns: error; nil on success, non-nil if the field cannot be set or inputs are invalid
+  obj: any - a non-nil pointer to a struct to modify.
+  name: string - the field name to set (must be exported and valid for the struct).
+  value: any - the value to assign to the field; for pointer fields, a value of the element type or a *element-type is accepted.
+Returns: error - non-nil if the field cannot be found, is unexported, or cannot be assigned to.
 Errors/Exceptions:
-- "obj must be a non-nil pointer to a struct"
-- "obj must point to a struct"
-- "no such field: %s"
-- "cannot set field %s (unexported?)"
-- "cannot assign %s to field %s of type %s"
-Side Effects: Mutates the field of the provided obj via reflection; may allocate a new pointer for pointer fields.
+  - "obj must be a non-nil pointer to a struct" if obj is not a non-nil pointer to a struct.
+  - "obj must point to a struct" if obj does not reference a struct.
+  - "no such field: %s" if the field name does not exist.
+  - "cannot set field %s (unexported?)" if the field is not settable.
+  - "cannot assign %s to field %s of type %s" if value cannot be assigned or converted to the field type.
+Side Effects: Mutates the field on obj.
 Edge Cases & Assumptions:
-- obj must be a non-nil pointer to a struct; otherwise an error is returned
-- The target field must be exported and settable
-- For pointer fields, value may be a T (assigned by constructing a new pointer) or a *T; otherwise assignment may fail
-- If value is invalid, not assignable, or not convertible to the field's type, an error is returned
-- If the field is found but cannot be set, an error is returned
+  - For pointer fields, accepts both T and *T for value.
+  - If value is not valid or cannot be assigned/converted, an error is returned.
+  - Only exported fields can be set via reflection; unexported fields produce an error.
 
 */
 func SetField(obj any, name string, value any) error {
@@ -247,36 +258,34 @@ func SetField(obj any, name string, value any) error {
 }
 
 /*
-Summary:
-Sets the value of an exported array or slice field (by name) on a struct pointed to by obj. If the field does not already contain the provided value (as determined by DeepEqual), the value is appended. Use to grow a collection field on a struct via reflection.
+Summary: Sets or appends a value to a struct field by name when the field is an array or slice. If the value is not already present, it appends it. Use when you need to mutate a slice/array field of a struct via reflection.
 
 Signature:
 func SetArray(obj any, name string, value any) error
 
 Parameters:
-- obj: any; a non-nil pointer to a struct. The function requires obj to be a pointer to a struct; otherwise an error is returned.
-- name: string; the name of the field on the struct to modify. The field must be exportable and addressable.
-- value: any; the value to append to the field if it is not already present. The field must be of kind array or slice.
+- obj: any — a non-nil pointer to a struct whose field will be modified.
+- name: string — the name of the field to modify.
+- value: any — the value to append to the field if not already present.
 
 Returns:
-- error: non-nil on failure; nil on success (when the value is appended or already present).
+- error — non-nil on failure; nil on success.
 
 Errors/Exceptions:
 - "obj must be a non-nil pointer to a struct" if obj is not a non-nil pointer to a struct.
-- "obj must point to a struct" if obj points to a non-struct value.
-- "no such field: %s" if the field named by name does not exist.
-- "cannot set field %s (unexported?)" if the field cannot be set (likely unexported).
+- "obj must point to a struct" if obj does not point to a struct.
+- "no such field: %s" if the struct has no field named name.
+- "cannot set field %s (unexported?)" if the field cannot be set.
 - "Member variable %v is not an array; is a: %v" if the field is not an array or slice.
-- "cannot assign %s to field %s of type %s" if the value cannot be assigned to the field element type.
+- "cannot assign %s to field %s of type %s" if the value cannot be assigned to the field’s element type.
 
 Side Effects:
-- Mutates the target struct's field by potentially appending value via reflection.
-- May allocate memory when appending to the field.
+- Modifies the target field of obj by appending value (when not already present).
 
 Edge Cases & Assumptions:
-- The function assumes the target field is either an array or a slice and attempts to append using reflect.Append; for arrays, this may be semantically inconsistent with the fixed length of arrays (runtime behavior depends on reflection). The behavior is determined by the code path that appends when the field is array or slice.
-- Existing elements are detected with DeepEqual; the value is only appended if an equal element is not already present.
-- The code includes the comment: "Handle pointer fields by accepting both T and *T" which indicates an intended flexibility, but the actual handling is determined by reflect on the field's element type.
+- Works for both array and slice fields; uses DeepEqual to detect existing membership.
+- If the value already exists in the field, nothing is changed.
+- Assumes type compatibility between value and the field element type; mismatches may cause runtime errors.
 
 */
 func SetArray(obj any, name string, value any) error {
@@ -322,35 +331,35 @@ func SetArray(obj any, name string, value any) error {
 }
 
 /*
-Summary: Updates a field on a Directive and persists the change to each config file specified in configFiles. It uses reflection to set the field, validates the Directive, and then saves the updated configuration back to disk for each file.
+Summary:
+UpdateDirectiveFieldInConfigs updates a field on a Directive (identified by directive.Name) and persists the change to each file in configFiles. The field is set by name using reflection via SetField, with the value derived from arg as a lower-cased types.DirectiveType. The directive is validated with CheckForSave before saving, and each config file is updated by loading its content, applying the change, and saving it.
 
-Signature: func UpdateDirectiveFieldInConfigs(directive types.Directive, field string, arg string, configFiles []string) error
+Signature:
+func UpdateDirectiveFieldInConfigs(directive types.Directive, field string, arg string, configFiles []string) error
 
 Parameters:
-- directive: types.Directive; the directive to update (identified by directive.Name)
-- field: string; the exported field name on the Directive to set
-- arg: string; the new value for the field; converted to types.DirectiveType(strings.ToLower(arg))
-- configFiles: []string; list of config file paths to update and persist
+- directive: types.Directive — target directive; uses directive.Name to locate the entry in config.Settings.Directives.
+- field: string — the field on the Directive to set (must be exported).
+- arg: string — value to assign to the field; converted to a DirectiveType via strings.ToLower.
+- configFiles: []string — list of config file paths to update with the new field value.
 
 Returns:
-- error; nil on success; non-nil if an update fails or a config file cannot be saved
+- error — non-nil if setting the field or persisting any config fails; nil on success.
 
 Errors/Exceptions:
-- "can't update directive %v: %v" when CheckForSave() fails after updating the field
-- "Failed to set field %v on directive %v: %v" when SetField() cannot assign the value
-- "Failed to create new directive: %v" if SaveConfigFile() fails for any config file
+- "Failed to set field %v on directive %v: %v" if SetField fails.
+- "can't update directive %v: %v" if d.CheckForSave() returns an error.
+- "Failed to create new directive: %v" if saving any per-file config fails.
 
 Side Effects:
-- Mutates config.Settings.Directives[directive.Name]
-- For each configFiles entry: pushes the current config onto the stack (config.PushLoadedConfig()), loads the file (config.LoadConfigFile), updates the directive in memory, and saves the updated config (config.SaveConfigFile)
-- Logs debug information about saving and updating config files
+- Mutates config.Settings.Directives[directive.Name].
+- Writes updated configuration to each configFile via SaveConfigFile, using a transient per-file load/save context (PushLoadedConfig/LoadConfigFile/SaveConfigFile/PopLoadedConfig).
 
 Edge Cases & Assumptions:
-- If configFiles is empty, the function updates the in-memory directive and may perform no file I/O
-- SetField requires a valid, exported field name that is settable; the field is updated via reflection
-- arg is lowercased and converted to types.DirectiveType for the field value
-- LoadConfigFile may be a no-op if the file does not exist
-- The function assumes config.Settings and directive mappings are initialized and available
+- Operates on config.Settings.Directives[directive.Name]; behavior is defined for the target directive in in-memory settings and per-file configs.
+- arg is lower-cased and cast to types.DirectiveType for field assignment.
+- Each configFile is processed independently; an error in one aborts the operation.
+- If configFiles is empty, only the in-memory directive is updated.
 
 */
 func UpdateDirectiveFieldInConfigs(directive types.Directive, field string, arg string, configFiles []string) error {
@@ -398,39 +407,25 @@ func UpdateDirectiveFieldInConfigs(directive types.Directive, field string, arg 
 }
 
 /*
-Summary:
-UpdateDirectiveArrayInConfigs updates the value of an exported array or slice field (by name) on a Directive
-and persists these changes across the provided configFiles. It validates the directive for saving once,
-then, for each config file, reloads the file, appends the given args to the specified field (without duplicates),
-and saves the updated configuration back to disk. The in-memory Settings are restored after processing all files.
-
-Signature:
-func UpdateDirectiveArrayInConfigs(directive types.Directive, field string, args []string, configFiles []string) error
-
+Summary: Updates the array/slice field named field on the provided directive by appending each value from args (if not already present), and persists the updated directive to each YAML config file in configFiles. The directive is identified in config.Settings.Directives by directive.Name. Validation is performed with d.CheckForSave() before persisting. If configFiles is non-empty, each file is loaded, updated, and saved; the in-memory global config is restored after processing. If configFiles is empty, the in-memory update remains only in config.Settings.
+Signature: func UpdateDirectiveArrayInConfigs(directive types.Directive, field string, args []string, configFiles []string) error
 Parameters:
-- directive: types.Directive; the directive to update. Used to locate the directive within config.Settings.Directives.
-- field: string; the name of the exported array or slice field on the directive to modify.
-- args: []string; values to append to the field if not already present.
-- configFiles: []string; paths to config files to update.
-
-Returns:
-- error: non-nil on failure (wrapped with context). Nil if all updates and saves succeed.
-
+- directive: types.Directive — the directive whose data is updated; uses directive.Name to locate the directive in config.Settings.Directives.
+- field: string — the name of the array/slice field on the directive to mutate.
+- args: []string — values to append to the field; each value is processed in order.
+- configFiles: []string — config file paths to persist changes to; each file is loaded, updated, and saved.
+Returns: error — non-nil on failure; nil on success. Errors may indicate inability to update an array field, validation failure, or failures writing config files.
 Errors/Exceptions:
-- Returns an error wrapping the result of d.CheckForSave() as "can't update directive: %v" if validation fails.
-- Returns an error wrapping failures from SetArray when updating the array field within the directive.
-- Returns an error wrapping failures from config.SaveConfigFile for any configFile as "Failed to create new directive: %v".
-
+- non-nil when d.CheckForSave() fails (wrapped as "can't update directive: %v").
+- non-nil when SetArray(&d, field, arg) fails for any arg (wrapped as "failed to update %v array with %v: %v").
+- non-nil when saving to a config file fails (wrapped as "Failed to create new directive: %v").
 Side Effects:
-- Mutates the in-memory config.Settings.Directives[directive.Name] and writes updated configurations to each configFile.
-- May allocate memory when appending to the field during SetArray.
-- Resets config.Settings per file during processing and restores it afterwards.
-
+- Mutates the in-memory directive (config.Settings.Directives[directive.Name]) and, for each configFile, writes updated directives to disk via LoadConfigFile/SaveConfigFile.
+- Logs debug information about saving to config files.
 Edge Cases & Assumptions:
-- The function validates the directive before applying changes to files; if validation fails, no changes are written.
-- For each configFile, the function resets in-memory configuration (config.Settings = config.NewConfig()) and loads the file before applying updates.
-- Existing elements are detected with DeepEqual; a value is appended only if it is not already present.
-- Assumes SetArray correctly handles pointer/addressable field access and works with array or slice fields.
+- Works for array and slice fields; avoids duplicates by membership check during SetArray (DeepEqual-based).
+- If configFiles is empty, the in-memory update to config.Settings.Directives is applied but nothing is written to disk.
+- Assumes type compatibility between Arg values and the field's element type; mismatches may cause runtime errors during SetArray.
 
 */
 func UpdateDirectiveArrayInConfigs(directive types.Directive, field string, args []string, configFiles []string) error {

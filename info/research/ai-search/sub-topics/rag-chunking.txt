@@ -1,0 +1,44 @@
+
+How they came up with 512 tokens with 200 token overlap:
+    $ https://ieeexplore-ieee-org.libproxy2.usc.edu/stamp/stamp.jsp?tp=&arnumber=11125724
+    [1, 2] define token level metrics for evaluating RAG retrievals
+    - Good paper. Definitely worth referencing again
+
+
+
+MinMax symantic chunking:
+    - https://link.springer.com/content/pdf/10.1007/s10791-025-09638-7.pdf
+
+
+Appears to be a great case study on novel rag retrieval methods:
+    - https://www.tandfonline.com/doi/pdf/10.1080/12460125.2024.2410040
+
+
+!! FUCK SOMEONE MAY HAVE ALREADY DONE THIS:
+    $ https://arxiv.org/pdf/2506.15655
+    - This one has benchmarks baby. Now we can eval and get a paper
+
+
+Another RAG to augment code generation:
+    => https://arxiv.org/pdf/2406.14497
+
+
+Vision Guided Chunking
+    - https://arxiv.org/pdf/2506.16035
+
+
+Chunking-Free In-Context retrieval
+    - https://arxiv.org/pdf/2402.09760
+
+
+Thesis on how chunking techniques change retrieval
+    - https://morotommaso.com/Moro_Tommaso_Thesis.pdf
+
+More RAG code generation techniques
+    - https://arxiv.org/pdf/2110.08512
+
+
+
+
+
+

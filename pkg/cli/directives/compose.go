@@ -19,19 +19,6 @@ var Cmd = &cobra.Command{
 }
 
 /*
-Summary: During package initialization, this init function registers CreateCmd as a subcommand by calling Cmd.AddCommand(CreateCmd).
-
-Signature: func init()
-
-Parameters: none
-
-Returns: none
-
-Errors/Exceptions: None documented; relies on the behavior of Cmd.AddCommand for any runtime errors.
-
-Side Effects: Mutates Cmd by adding CreateCmd to its subcommands.
-
-Edge Cases & Assumptions: Assumes Cmd and CreateCmd are defined and initialized in the package before init runs.
 
 */
 func init() {
@@ -84,18 +71,26 @@ var RemoveCmd = &cobra.Command{
 */
 
 /*
-Summary: Builds a slice of Cobra commands for each custom directive defined in config.Settings.Directives. For every directive, it creates a parent command with Use: "<name> [init|add|ignore|model|docs|prompt|prompt-text|run] <targets>" and attaches subcommands for Run, Init, Export, and per-field updates (string and array updates) derived from helper functions.
+Summary: Creates a set of custom Cobra commands based on directives found in config.Settings.Directives. For each directive, a parent command is created with a Use that includes the directive name and a fixed set of subcommands (run/init/export and per-field commands). The function wires in handler creators (CreateCustomRunHandler, CreateCustomInitHandler, CreateCustomExportHandler, AddFieldUpdates, AddArrayUpdates) to build the directive-specific CLI.
+
 Signature: func CreateCustomCommands() ([]*cobra.Command, error)
-Parameters: none
+
 Returns:
-  - []*cobra.Command: the constructed parent commands, one per directive.
-  - error: non-nil if any helper fails to create a subcommand for a directive.
-Errors/Exceptions: If CreateCustomRunHandler, CreateCustomInitHandler, CreateCustomExportHandler, AddFieldUpdates, or AddArrayUpdates return an error, the function returns nil and that error.
-Side Effects: Logs a debug message about the number of directives; may perform allocation and wiring of commands; may invoke helper functions to create subcommands.
+- []*cobra.Command: slice of constructed parent commands (one per directive).
+- error: non-nil if any per-directive handler creation fails; otherwise nil.
+
+Errors/Exceptions:
+- Returns an error if CreateCustomRunHandler, CreateCustomInitHandler, or CreateCustomExportHandler fail to create a command for a directive.
+- AddFieldUpdates or AddArrayUpdates failures cause an error to be returned.
+
+Side Effects:
+- Reads config.Settings.Directives and constructs in-memory Cobra Command trees; does not persist or mutate configuration by itself.
+- Logs debug information during directive discovery and command creation.
+
 Edge Cases & Assumptions:
-  - Assumes config.Settings.Directives is a map-like collection of directives with keys as names and values exposing Short and Description.
-  - If a directive's subcommand creation fails, the error is propagated and the function aborts.
-  - If config.Settings.Directives is empty, returns an empty slice without errors.
+- If config.Settings.Directives is empty, returns an empty slice with nil error.
+- Uses init_options "[init|add|ignore|model|docs|prompt|prompt-text|run]" to compose Use for each directive.
+- Assumes CreateCustomRunHandler, CreateCustomInitHandler, CreateCustomExportHandler, AddFieldUpdates, and AddArrayUpdates are defined elsewhere and return the appropriate command objects or errors.
 
 */
 func CreateCustomCommands() ([]*cobra.Command, error) {
@@ -167,28 +162,21 @@ func CreateCustomCommands() ([]*cobra.Command, error) {
 }
 
 /*
-Summary: Constructs a Cobra command named "run" that executes the provided directive by invoking directive.Execute() when run, and includes a descriptive text derived from directive.Name and directive.Output.
-
+Summary: Creates a Cobra command named "run" that executes the provided directive when invoked and saves its output. Use this to expose a per-directive CLI run entry point.
 Signature: func CreateCustomRunHandler(directive types.Directive) (*cobra.Command, error)
-
 Parameters:
-- directive: types.Directive — the directive to be executed when the command is invoked. The command description uses directive.Name and directive.Output.
-
+  - directive: types.Directive - the directive to run; its Name is used for logging and description, and Output labels the saved result.
 Returns:
-- *cobra.Command — a ready-to-use command configured with Use: "run", zero-argument requirement, and a Run handler that executes the directive.
-- error — always nil in this implementation.
-
+  - *cobra.Command: a configured Cobra command with Use="run", Short/Long set to a description derived from directive.
+  - error: nil in the current implementation.
 Errors/Exceptions:
-- The Run function calls directive.Execute(); if it returns an error, log.Fatalf is invoked, terminating the process with the error.
-
+  - On execution failure, the Run function logs a fatal error via log.Fatalf and terminates the process.
 Side Effects:
-- Logs a debug message at creation time: "Executing %v custom run handler".
-- May perform I/O through directive.Execute(); on error, the process exits via log.Fatalf.
-
+  - May invoke directive.Execute() within Run, which can perform I/O, network calls, or state mutations; may terminate the process on error.
 Edge Cases & Assumptions:
-- Assumes directive.Execute() handles the directive's actual execution logic across possible kinds.
-- Uses directive.Name for the log message and directive.Output for the command description; empty fields may yield empty descriptions.
-- The command enforces zero arguments (Args: cobra.ExactArgs(0)).
+  - The command enforces exactly 0 arguments (cobra.ExactArgs(0)).
+  - No validation is performed on directive before wiring it into the command.
+  - The constructed command description reflects directive.Name and directive.Output.
 
 */
 func CreateCustomRunHandler(directive types.Directive) (*cobra.Command, error) {
@@ -211,30 +199,38 @@ func CreateCustomRunHandler(directive types.Directive) (*cobra.Command, error) {
 }
 
 /*
-Summary: Creates a Cobra command that initializes the given directive by loading and applying
-the directive's configuration from the project's config files into the local scope. Use this
-to bootstrap or rehydrate a directive from existing configuration during CLI usage.
-Signature: func CreateCustomInitHandler(directive types.Directive) (*cobra.Command, error)
-Parameters:
-- directive: types.Directive — the directive to initialize within the local project configuration.
-Returns:
-- *cobra.Command — the initialized command with Use: "init [files]".
+Summary: Creates a Cobra command that initializes a given directive by loading configuration
+from the active scope (global/user/local or a custom config), then applies the directive in the
+local project configuration and persists changes.
+Use this to seed or constrain a directive within the local project config using existing configs.
 
-- error — always nil per the implementation; any errors during execution are handled inside the command
-  via log.Fatalf in Run.
+Signature: func CreateCustomInitHandler(directive types.Directive) (*cobra.Command, error)
+
+Parameters:
+- directive: types.Directive — the directive to initialize in the local scope. Its Name is used to
+  describe the command.
+
+Returns:
+- *cobra.Command: a configured command with Use "init [files]", Short/Long descriptions, and a Run
+  implementation that performs the initialization.
+- error: non-nil if the command cannot be constructed.
+
 Errors/Exceptions:
-- No error return from the function itself; internal failures during Run are reported by log.Fatalf (terminating
-  the process).
+- The Run implementation may call log.Fatalf on failures to load config scope flags or to resolve
+  config files, terminating the process.
+- If initialization in the local scope fails (InitDirectiveInLocalScope returns an error), Run logs
+  and exits with a non-nil error.
+
 Side Effects:
-- Logs a debug message indicating the custom init handler execution.
-- Reads and potentially mutates CLI flags (global, user, local) to determine config scope.
-- Retrieves configuration files via helpers.GetConfigsFromFlags and may initialize directive data via
-  InitDirectiveInLocalScope, which can write updated configuration to disk.
+- Creates a command object and, when executed, reads flags, loads config files, and mutates the
+  local configuration via InitDirectiveInLocalScope, persisting changes to config.ProjectConfigFile.
+- Emits debug/info logs during command creation and execution.
+
 Edge Cases & Assumptions:
-- Assumes flags "global", "user", "local" are boolean and "config" is a string flag used by helpers.
-- If no scopes are active, the code enables global and user scopes by setting their flags to true.
-- The directive is expected to be a valid types.Directive; if InitDirectiveInLocalScope fails, execution
-  is terminated with log.Fatalf.
+- If the directive is already initialized in the initial ProjectConfigFile, InitDirectiveInLocalScope may
+  return nil without changes (per its documented behavior).
+- Assumes package-level identifiers (config.ProjectConfigFile, etc.) and helper functions are defined
+  elsewhere and accessible from this context.
 
 */
 func CreateCustomInitHandler(directive types.Directive) (*cobra.Command, error) {
@@ -276,31 +272,25 @@ func CreateCustomInitHandler(directive types.Directive) (*cobra.Command, error) 
 }
 
 /*
-Summary
-Creates a Cobra command that exports a given directive to configured files. The command is named "export" and uses the directive's Name to describe its purpose. It initializes export behavior and delegates to ExportCustomDirective to persist the directive across selected config files.
-
-Signature
-func CreateCustomExportHandler(directive types.Directive) (*cobra.Command, error)
-
-Parameters
-- directive: types.Directive — the directive to export; its Name identifies the entry in Settings.Directives to update.
-
-Returns
-- *cobra.Command — a ready-to-use Cobra command named "export" for the directive.
-- error — always nil in this implementation (the function constructs and returns the command or an error during construction, if any).
-
-Errors/Exceptions
-- Construction errors during command initialization would be returned; runtime errors inside Run are handled via log.Fatalf and terminate the process.
-
-Side Effects
-- Creates a new Cobra command instance.
-- On execution, reads and validates configuration scope and config files, then updates persistent directive state across files.
-- May terminate the process via log.Fatalf on runtime failures.
-
-Edge Cases & Assumptions
-- Assumes directive.Name is a valid key in the settings for export.
-- If config file collection yields no paths, ExportCustomDirective is effectively a no-op and returns nil.
-- Runtime errors during flag retrieval or directive export are handled by terminating the process with a logged error.
+Summary: Creates a Cobra command that exports the provided directive to configuration files chosen by scope flags. The command description uses directive.Name and exports across global, user, local, or a custom config as determined at runtime.
+Signature: func CreateCustomExportHandler(directive types.Directive) (*cobra.Command, error)
+Parameters:
+- directive: types.Directive — the directive to export; its name is used for command description.
+Returns:
+- *cobra.Command: the constructed export command.
+- error: returned as nil; the function always returns a command and nil error; Run-time errors are handled by log.Fatalf.
+Errors/Exceptions:
+- The Run function will call log.Fatalf on failures when loading config scope flags, obtaining config files, or exporting the directive.
+Side Effects:
+- Creates and initializes a Cobra command.
+- Reads and interprets scope flags via helpers.GetConfigScopeFlags(cmd).
+- Determines config files via helpers.GetConfigsFromFlags(cmd) and may default to appropriate project config paths.
+- Exports the directive to the selected config files via ExportCustomDirective(directive, configFiles), mutating config.Settings and persisting YAML files.
+- May modify Cobra flags (e.g., defaulting to the user scope with cmd.Flags().Set("user", "true")).
+Edge Cases & Assumptions:
+- If no scopes are explicitly selected, the command defaults to exporting to the user scope.
+- The helper functions may terminate the process via log.Fatalf on errors; this function does not return errors to its caller.
+- Assumes directive.Name is a valid key for the target config maps; behavior for missing keys relies on the underlying ExportCustomDirective implementation.
 
 */
 func CreateCustomExportHandler(directive types.Directive) (*cobra.Command, error) {
@@ -420,30 +410,41 @@ var StringFieldsToUpdate = []Field{
 }
 
 /*
-Summary:
-AddFieldUpdates creates a set of Cobra commands, one for each field listed in StringFieldsToUpdate, to update string fields on a given directive. Each generated command accepts exactly one argument and, when run, updates the corresponding field on the provided directive across configuration files selected via command flags.
+AddFieldUpdates builds a set of cobra.Command entries to update string fields on a given
+Directive and persist the changes to configuration files loaded at runtime.
 
-Signature:
-func AddFieldUpdates(directive types.Directive) ([]*cobra.Command, error)
+Summary: Creates a dedicated command for each field defined in StringFieldsToUpdate to
+update that field on the provided directive and save the changes to all relevant config
+files. Use when you want CLI-driven, per-field updates of a Directive that are written back
+to configuration files.
+
+Signature: func AddFieldUpdates(directive types.Directive) ([]*cobra.Command, error)
 
 Parameters:
-- directive: types.Directive — the directive to update when any generated command runs.
+- directive: types.Directive — the target directive whose fields may be updated via the generated commands.
+  The directive's name is used for logging and traceability during updates.
 
 Returns:
-- []*cobra.Command — the created commands for updating each string field.
-- error — always nil under current implementation (no error is returned by this function).
+- []*cobra.Command — a slice of commands, one per field in StringFieldsToUpdate, each configured with
+  Use, Short, Long, and an ExactArgs(1) constraint.
+- error — currently nil for this function; any run-time errors are surfaced via fatal logs within the
+  command execution path (Run) when interacting with config loading or updating.
 
 Errors/Exceptions:
-- This function itself does not return errors. Errors encountered during command execution are surfaced via log.Fatalf within the Run closures (e.g., failures in GetConfigsFromFlags or UpdateDirectiveFieldInConfigs).
+- The function itself does not return non-nil errors. Run-time failures may terminate the process via
+  log.Fatalf inside the command's Run handler (e.g., failures in GetConfigsFromFlags or updating the directive).
 
 Side Effects:
-- Constructs and returns new []*cobra.Command objects.
-- Execution of each command may read flags from cmd, derive configFiles, and update and persist directive changes to config files.
+- Registers new cobra.Command instances that mutate a Directive and persist changes to configFiles via
+  UpdateDirectiveFieldInConfigs. May cause log output and creation/verification of config files when executed.
+- May terminate the process if errors occur while resolving configuration files (through log.Fatalf in Run).
 
 Edge Cases & Assumptions:
-- Assumes StringFieldsToUpdate is populated with entries containing Use, Short, Long, and Name.
-- Run closures rely on the loop variable field; without capturing a local copy inside the loop, all commands may reference the final field value due to closure semantics.
-- If config file updates fail during Run, the process terminates via log.Fatalf (no error is returned to the caller).
+- Iterates over StringFieldsToUpdate; for each field, a command is created using field.Use, field.Short, and
+  field.Long, with Args enforced as cobra.ExactArgs(1).
+- The Run closure captures field and directive; it loads config files via helpers.GetConfigsFromFlags(cmd) and
+  updates the corresponding field on the directive when invoked.
+- If StringFieldsToUpdate is empty, the function returns an empty slice without errors.
 
 */
 func AddFieldUpdates(directive types.Directive) ([]*cobra.Command, error) {
@@ -498,33 +499,23 @@ var ArrayFieldsToUpdate = []Field{
 }
 
 /*
-Summary
-Creates a set of Cobra commands to update exported array/slice fields on the provided directive.
-Each command corresponds to an entry in ArrayFieldsToUpdate and, when executed, loads config file
-paths from flags and updates the specified field across those config files.
-
-Signature
-func AddArrayUpdates(directive types.Directive) ([]*cobra.Command, error)
-
-Parameters
-- directive: types.Directive — the directive whose array fields will be updated.
-
-Returns
-- []*cobra.Command — commands for updating each array field; the slice length equals len(ArrayFieldsToUpdate).
-- error — always nil for this function; runtime errors are surfaced by the Run handlers via log.Fatalf.
-
-Errors/Exceptions
-- The function itself does not return an error; failures during flag resolution or config updates cause
-  the Run handlers to log and terminate the process via log.Fatalf.
-
-Side Effects
-- Allocates and returns a slice of *cobra.Command with Run callbacks that perform flag parsing, config loading,
-  and directive array updates on disk.
-
-Edge Cases & Assumptions
-- If ArrayFieldsToUpdate is empty, returns an empty slice.
-- Each command uses field.Use, field.Short, field.Long, and field.Name from the corresponding ArrayFieldsToUpdate entry.
-- Assumes helpers.GetConfigsFromFlags(cmd) and UpdateDirectiveArrayInConfigs(...) behave as documented elsewhere.
+Summary: Build and return a list of Cobra commands, one per element of ArrayFieldsToUpdate, to update array/slice fields on the provided directive. Each command loads configuration file paths from flags and updates the corresponding directive array across config files (if any), or just in memory when no files are provided.
+Signature: func AddArrayUpdates(directive types.Directive) ([]*cobra.Command, error)
+Parameters:
+- directive: types.Directive — the directive to update; each generated command uses directive in its Run closure.
+Returns:
+- []*cobra.Command: a list of commands, one per field in ArrayFieldsToUpdate.
+- error: nil in the current implementation; errors encountered at runtime are handled via log.Fatalf inside the Run closures.
+Errors/Exceptions:
+- The function itself does not return a non-nil error. Runtime failures are surfaced via log.Fatalf within the Run callbacks (e.g., failures loading config scopes or updating directive arrays).
+Side Effects:
+- Creates and returns Cobra commands; each command, when run, may read config scope flags, determine configFiles, and update config.Settings.Directives[directive.Name] via UpdateDirectiveArrayInConfigs. May log debug messages and terminate the process on error.
+- May mutate persistent configuration files on disk and the in-memory config.Settings.
+Edge Cases & Assumptions:
+- If ArrayFieldsToUpdate is empty, returns an empty slice of commands.
+- Run closures capture loop variables (field, directive); without per-iteration copies, they may reference the last field value at execution time.
+- Assumes ArrayFieldsToUpdate elements expose Use, Short, Long, and Name fields; uses field.Name for the target directive field and for logging.
+- Assumes helpers.GetConfigsFromFlags(cmd) yields configFiles or handles failures via a fatal log; if configFiles is empty, updates apply only to the in-memory config.Settings.Directives and do not write to disk.
 
 */
 func AddArrayUpdates(directive types.Directive) ([]*cobra.Command, error) {

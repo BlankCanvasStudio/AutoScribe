@@ -11,32 +11,29 @@ import (
 
 /*
 Summary:
-FormatAsGoComment takes an input string, normalizes and extracts Go-style comments, and returns them as a single Go-style block comment. It removes markdown wrappers, fixes comment delimiters, parses the input as Go code, and, if needed, prepends a package statement to improve parsing. The function then collects all top-level comments from the parsed file and returns them wrapped as a single comment block.
+FormatAsGoComment formats an input string into a Go block comment by parsing the input as Go code after normalizing markdown wrappers and extracting the comments from the AST. If parsing fails, it prepends a synthetic "package main;" declaration and retries. The function returns the collected comments wrapped as a single Go block comment, or an error if parsing ultimately fails.
 
 Signature:
 func FormatAsGoComment(input string) (string, error)
 
 Parameters:
-- input: string
-  role: the source text to convert into a Go comment block.
-  constraints: arbitrary string; markdown wrappers and inline code markers will be stripped.
+- input: string. The text to convert. May contain markdown wrappers, code fences, and inline Go comments. The function normalizes the input to valid Go syntax for parsing.
 
 Returns:
-- string: the concatenated comments extracted from the input, formatted as a Go-style block comment.
-- error: non-nil if parsing or extraction fails.
+- string: a Go block comment containing the extracted comments.
+- error: non-nil if both parsing attempts fail.
 
 Errors/Exceptions:
-- Returns an error if parsing fails even after attempting to salvage by adding "package main;\n".
-- May log details via log.Errorf and log.Debugf when errors occur.
+- If the initial parse fails, the function tries again with a synthetic "package main;" prefix; if that also fails, it returns the encountered error.
+- If no comments are found, the returned block represents an empty comment.
 
 Side Effects:
-- Reads and mutates a local copy of input during processing.
-- May emit log messages.
+- Logs errors and debug information via log.Errorf and log.Debugf when parsing fails.
 
 Edge Cases & Assumptions:
-- If input already contains valid Go comments, those are returned.
-- If initial parsing fails, the function attempts to salvage by prepending a minimal package declaration.
-- The output is all the comments found in file.Comments, concatenated in visitation order.
+- Assumes input can become valid Go syntax after normalization; otherwise the function returns an error.
+- Output is a single Go-style block comment that can be embedded directly in Go source.
+- If the input contains no Go comments, the result is an empty comment block.
 
 */
 func FormatAsGoComment(input string) (string, error) {

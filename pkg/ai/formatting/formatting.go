@@ -9,32 +9,22 @@ import (
 )
 
 /*
-Summary: Recursively collect and concatenate the contents of the files specified in focus into a single string, traversing directories and using AppendFileToData to format each file's data. Use when you need a unified contextual blob representing a set of files.
-
+Summary: Build a single string by recursively traversing the paths in focus, reading files, and appending their contents using AppendFileToData. The result represents a cohesive context blob for the given inputs. The ignore parameter is accepted but currently not implemented (a debug log notes it).
 Signature: func CombineFilesForContext(focus []string, ignore []string) (string, error)
-
 Parameters:
-- focus: []string, paths to include. Each entry may be a file or a directory. Directories are traversed recursively.
-- ignore: []string, file paths to ignore. Currently not implemented; provided for future use. The function logs that ignoring is not yet implemented.
-
+  focus []string - file or directory paths to include; directories are traversed recursively.
+  ignore []string - paths to ignore; currently not implemented.
 Returns:
-- string: The accumulated data produced by combining each file's formatted block, as produced by AppendFileToData for each processed file.
-- error: Non-nil if any stat/read/recursion/appending operation fails.
-
+  string - concatenated data containing per-file blocks (via AppendFileToData).
+  error - non-nil if a file cannot be stat'ed, a directory cannot be read, or AppendFileToData fails for a file.
 Errors/Exceptions:
-- non-nil if os.Stat(file) returns an error for any path in focus.
-- non-nil if os.ReadDir(file) returns an error when processing directories.
-- non-nil if CombineFilesForContext recursively called on a path returns an error.
-- non-nil if AppendFileToData(file, data) returns an error for any file.
-
+  Returns an error when os.Stat(file) fails, os.ReadDir(file) fails, or AppendFileToData(file, data) returns an error.
 Side Effects:
-- Reads files and directories from disk; does not write to disk.
-- Emits a debug log about ignore handling: "Would ignore these files, but that's not implemented yet: %v"
-
+  Reads filesystem contents; does not modify input files or global state.
 Edge Cases & Assumptions:
-- ignore currently has no effect; future behavior may filter paths before processing.
-- The order of produced data follows the order of focus, and, for directories, the order returned by os.ReadDir.
-- If a path cannot be read or stat fails, the function returns an error and does not partially modify the result.
+  Directories are processed in the order returned by os.ReadDir; files are appended in that traversal order.
+  File contents are included as strings (binary content is represented as string(bytes)); data is extended for each processed file.
+  If data is initially empty, the File/Contents block is still appended for each file.
 
 */
 func CombineFilesForContext(focus []string, ignore []string) (string, error) {
@@ -80,23 +70,22 @@ func CombineFilesForContext(focus []string, ignore []string) (string, error) {
 }
 
 /*
-Summary: Appends a labeled representation of the file specified by filename to the given data string.
-Use when you want to accumulate the contents of a file alongside existing data.
+Summary: Reads the file named by filename and appends a formatted block containing the file name and its contents to data, returning the updated string.
 Signature: func AppendFileToData(filename, data string) (string, error)
 Parameters:
-- filename: string, path to the file to read.
-- data: string, existing data to append to.
+  filename string - path to the file to read.
+  data string - existing data to which the file block will be appended.
 Returns:
-- string: the updated data containing the appended file block in the form:
-  "File:\n<filename>\nContents:\n<contents>\n\n"
-- error: non-nil if reading the file fails.
+  string - updated data with the appended File and Contents block.
+  error - non-nil on read failure.
 Errors/Exceptions:
-- returns an error: "failed to read file %v: %v" on read failure, with the filename and underlying error.
+  If reading the file fails, returns "" and an error formatted as "failed to read file %v: %v" including filename and the underlying error.
 Side Effects:
-- Reads the file from disk. No write operations are performed.
+  Reads from the filesystem; does not modify the input file or the filesystem; returns a new string.
 Edge Cases & Assumptions:
-- If the file cannot be read, the function returns an error and does not modify data.
-- The file contents are appended as a string; binary data will be included as its string representation.
+  File contents are included as string(content); binary content will be represented as a string via string(content).
+  If data is empty, the File/Contents block is still appended.
+  The function assumes os.ReadFile and fmt.Sprintf behave as documented; on error it returns a non-nil error.
 
 */
 func AppendFileToData(filename, data string) (string, error) {

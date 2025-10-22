@@ -50,36 +50,34 @@ type Directive struct {
 }
 
 /*
-Summary: Validates and normalizes a Directive, ensuring required fields are set, defaults are applied, and the prompt resource exists when provided. Use this before using a Directive to guarantee it is in a usable, consistent state.
+Summary: Validates and normalizes a Directive instance before use. Ensures required fields are set and fills in defaults; optionally verifies the existence of the prompt file when provided.
 
-Signature:
-func (d *Directive) SanityCheck() error
+Signature: func (d *Directive) SanityCheck() error
 
 Parameters:
-- d: *Directive — the receiver instance to validate and normalize.
+- d: *Directive — the receiver being validated and normalized.
 
 Returns:
-- error: non-nil if validation fails; nil if validation and normalization succeed.
+- error: non-nil if validation fails (see Errors/Exceptions); nil if validation and normalization succeed.
 
 Errors/Exceptions:
-- error when Name is empty ("no directive name specified for: %+v").
-- error when Kind is NoneDirective ("no directive kind specified for %v", d.Name).
-- error when both Prompt and PromptText are empty ("no prompt file or text specified for directive %v", d.Name).
-- error when Prompt is set but the file does not exist ("prompt file %v doesn't exist").
-- error when ApiKey is empty ("no api key specified for directive %v", d.Name).
+- "no directive name specified for: %+v" if d.Name == ""
+- "no directive kind specified for %v" if d.Kind == NoneDirective
+- "no prompt file or text specified for directive %v" if d.Prompt == "" && d.PromptText == ""
+- "prompt file %v doesn't exist" if d.Prompt != "" and the file does not exist
 
 Side Effects:
-- Sets d.Focus to an empty []string if nil.
-- Sets d.Ignore to an empty []string if nil.
-- Replaces d.Model with DefaultModel when it is NoModel.
-- Replaces d.LocalDocs with DefaultLocalDocs when empty.
-- Sets d.Servers to an empty []string if nil.
-- When Prompt is provided, verifies the prompt file exists via os.Stat.
+- Mutates d.F ocus to an empty []string when nil
+- Mutates d.Ignore to an empty []string when nil
+- If d.Model == NoModel, sets d.Model = DefaultModel
+- If d.LocalDocs == "", sets d.LocalDocs = DefaultLocalDocs
+- If d.Servers == nil, sets d.Servers = make([]string, 0)
 
 Edge Cases & Assumptions:
-- If Prompt is provided, its file path must exist; otherwise an error is returned.
-- PromptText is considered only insofar as providing a prompt when Prompt is empty; both empty triggers an error.
-- Defaults rely on predefined constants DefaultModel and DefaultLocalDocs; behavior assumes these are valid defaults.
+- Requires a non-empty d.Name and a non-None directive kind.
+- Requires at least a prompt file path (Prompt) or prompt text (PromptText); PromptText is accepted without file validation.
+- When Prompt is provided, its file must exist; the check uses os.Stat.
+- Defaulting behavior depends on constants DefaultModel, DefaultLocalDocs, and NoModel / NoneDirective.
 
 */
 func (d *Directive) SanityCheck() error {
@@ -130,21 +128,17 @@ func (d *Directive) SanityCheck() error {
 }
 
 /*
-CheckForSave validates that a Directive is ready to be saved.
-
-Summary: Ensures a non-empty Name and that a prompt source is provided (Prompt or PromptText).
-If a Prompt file is specified, verifies that the prompt file exists on disk.
+Summary: Validates that a Directive has enough information to be saved and that any referenced prompt file exists. Used before persisting a Directive.
 Signature: func (d *Directive) CheckForSave() error
-Returns: error (nil if valid; non-nil on validation failure or missing prompt file)
+Returns: error — non-nil when validation fails; nil if the Directive is ready to save.
 Errors/Exceptions:
-- "no directive name specified for: %+v" when d.Name == ""
-- "no prompt file or text specified for directive %v" when both d.Prompt and d.PromptText are empty
-- "prompt file %v doesn't exist" when d.Prompt != "" and the file does not exist
-Side Effects: Reads the filesystem via os.Stat when d.Prompt is non-empty
+  - "no directive name specified for: %+v" if d.Name is the empty string.
+  - "no prompt file or text specified for directive %v" if both d.Prompt and d.PromptText are empty.
+  - "prompt file %v doesn't exist" if d.Prompt is non-empty but the file does not exist.
+Side Effects: When d.Prompt != "", performs os.Stat(d.Prompt) to verify the file exists.
 Edge Cases & Assumptions:
-- If d.Prompt is non-empty, the path must refer to an existing file.
-- The Kind check is present in comments but not enforced by this function.
-- The function does not mutate d; it solely validates readiness for saving.
+  - The check for d.Kind == NoneDirective is present in comments and not executed (disabled).
+  - If both Prompt and PromptText are provided, only the existence of Prompt is checked; PromptText is not validated in this path.
 
 */
 func (d *Directive) CheckForSave() error {
@@ -173,26 +167,18 @@ func (d *Directive) CheckForSave() error {
 }
 
 /*
-Summary: PrettyPrint outputs a human-readable representation of a Directive to standard output,
-using the provided prefix to indent lines. Use for debugging or inspecting a Directive's fields.
+Summary: Pretty-prints the Directive to standard output with a given prefix, displaying its Name, Kind, ApiKey, Model, LocalDocs (as the Model value), Prompt or PromptText, and the lists in Focus, Ignore, and Servers for debugging/inspection.
 Signature: func (d *Directive) PrettyPrint(prefix string)
 Parameters:
-- prefix: string, role: formatting prefix prepended to each output line.
-Returns: none.
-Errors/Exceptions: none.
-Side Effects: writes to standard output via fmt.Printf and fmt.Println.
-Behavior details:
-- Prints:
-  - "Directive: <d.Name>", "  Kind: <d.Kind>", "  ApiKey: <d.ApiKey>", "  Model: <d.Model>", "  LocalDocs: <d.Model>".
-- If d.PromptText != "" then prints "  Prompt:" followed by the contents of d.PromptText;
-  otherwise prints "  Prompt: <d.Prompt>".
-- Prints "  Focus:" followed by each element in d.Focus as "- <value>".
-- Prints "  Ignore:" followed by each element in d.Ignore as "- <value>".
-- Prints "  Servers:" followed by each element in d.Servers as "- <value>".
-- Ends with an empty line.
+  - d: *Directive, receiver (implicit) — the directive instance to print
+  - prefix: string — indentation prefix applied to all output lines
+Returns: none
+Errors/Exceptions: none
+Side Effects: writes formatted output to standard output via fmt.Printf and fmt.Println
 Edge Cases & Assumptions:
-- If d.PromptText is non-empty, it takes precedence over d.Prompt for the Prompt section.
-- Nil slices for Focus, Ignore, or Servers are handled gracefully (no output for those sections when nil).
+  - If d.PromptText != "", the PromptText block is printed; otherwise the Prompt value is printed.
+  - Headers for Focus, Ignore, and Servers are always printed; if the corresponding slices are empty, no items follow the header.
+  - LocalDocs is displayed using d.Model (i.e., the code prints "LocalDocs: <Model>"), which may reflect a implementation quirk.
 
 */
 func (d *Directive) PrettyPrint(prefix string) {
@@ -227,19 +213,20 @@ func (d *Directive) PrettyPrint(prefix string) {
 }
 
 /*
-Summary: Dispatches execution based on the Directive.Kind. For NoneDirective and TextDirective, it delegates to d.ExecuteTextDirective(); for RecursiveDirective, it delegates to d.ExecuteRecursiveDirective(); any other kind results in an error.
-Use when you want to run the appropriate directive handler without invoking the specific handlers directly.
+Summary: Executes the Directive by routing to the appropriate specialized executor based on d.Kind. Delegates to ExecuteTextDirective() for NoneDirective or TextDirective, or to ExecuteRecursiveDirective() for RecursiveDirective; otherwise returns an error indicating the kind is not implemented.
 Signature: func (d *Directive) Execute() error
-Parameters: none (method on Directive)
-Returns: error. Nil on success; non-nil on failure. May be an error from ExecuteTextDirective or ExecuteRecursiveDirective, or a "directive kind %v not implemented" error for unsupported kinds.
+Parameters:
+  - d *Directive - receiver; uses d.Kind and related fields to determine the execution path.
+Returns:
+  - error - non-nil if the selected execution path fails or if the directive kind is not implemented; nil on success.
 Errors/Exceptions:
-- "directive kind %v not implemented" if d.Kind is not one of NoneDirective, TextDirective, or RecursiveDirective
-- Propagates errors from ExecuteTextDirective() and ExecuteRecursiveDirective() as they are invoked
-Side Effects: May perform I/O via the delegated handlers (e.g., text execution, recursive processing), and may mutate internal state through those calls.
+  - "directive kind %v not implemented" when d.Kind is not one of the handled kinds.
+  - Any error returned by d.ExecuteTextDirective() or d.ExecuteRecursiveDirective().
+Side Effects:
+  - May invoke d.ExecuteTextDirective() or d.ExecuteRecursiveDirective(), potentially performing I/O, network calls, or state mutations via those paths.
 Edge Cases & Assumptions:
-- NoneDirective is treated the same as TextDirective for execution purposes.
-- Only NoneDirective, TextDirective, and RecursiveDirective are supported; others will error.
-- The actual behavior and error messages depend on the implementations of ExecuteTextDirective() and ExecuteRecursiveDirective().
+  - If d.Kind == NoneDirective or TextDirective, the text execution path is chosen; if RecursiveDirective, the recursive path is chosen; otherwise an error is returned.
+  - Relies on downstream methods to perform their own validation and error reporting.
 
 */
 func (d *Directive) Execute() error {
@@ -255,19 +242,22 @@ func (d *Directive) Execute() error {
 }
 
 /*
-Summary: Executes a text directive by selecting the configured language model. For GPT_41_Nano, it delegates to d.Query41Nano() to obtain a model response, then either prints the result to stdout or writes it to the file specified by d.Output.
+Summary: Executes a text directive by dispatching to the model-specific prompt generation and AI query path (currently GPT_41_Nano), returning the assistant's reply or writing it to a file.
+Use when you want to process a Directive into AI-generated text and either print it or persist it to disk.
 Signature: func (d *Directive) ExecuteTextDirective() error
-Parameters: none (method on Directive)
-Returns: error. Nil on success; non-nil on failure.
+Parameters:
+  d *Directive - receiver; uses d.ApiKey, d.Model, d.PromptText, d.Prompt, d.Focus, d.Ignore, and potentially d.Output.
+Returns:
+  error - non-nil if prompt generation, API query, or file I/O fails; nil on success.
 Errors/Exceptions:
-  - returns an error if an unsupported model is configured ("model %v doesn't exist")
-  - propagates errors from Query41Nano as "failed to query 41Nano: %v"
-  - returns an error if writing ai output to d.Output fails ("failed to write ai output to %v: %v")
-Side Effects: may perform a network request to the OpenAI API via Query41Nano; may read prompt data from disk via GetFullPrompt; may print to stdout or write to a file.
+  - "failed to query 41Nano: %v" if d.Query41Nano() returns an error.
+  - "model %v doesn't exist" if d.Model is unrecognized.
+Side Effects:
+  - May create an OpenAI client with d.ApiKey and perform a network request via d.Query41Nano().
+  - GetFullPrompt (invoked within the query path) may read prompt templates/files during prompt assembly.
+  - If d.Output is non-empty, writes the AI output to the path d.Output; otherwise prints the output to stdout.
 Edge Cases & Assumptions:
-  - only GPT_41_Nano is implemented in this path; other models yield an error
-  - when d.Output is non-empty, output is written to that path with 0644 permissions; otherwise, the result is printed
-  - relies on Query41Nano to return the first response content as aiResult and to handle its own internal errors
+  - For GPT_41_Nano: GetFullPrompt must succeed and return a non-empty prompt; assumes at least one chatCompletion.Choices entry is available (accessed as chatCompletion.Choices[0].Message.Content); uses context.TODO() for the API call.
 
 */
 func (d *Directive) ExecuteTextDirective() error {
@@ -299,31 +289,33 @@ func (d *Directive) ExecuteTextDirective() error {
 }
 
 /*
-Summary: Executes the recursive directive to load Go packages from the folders specified in Directive.Focus, build PackageNode entries, enrich them with PopulatePackageInformation, and generate and persist documentation for the MST. When Language is NoLang or GoLang it processes Go packages; for other languages it returns an error.
+Summary: Executes a recursive directive for the current Directive by loading Go packages from the specified folders, constructing PackageNode entries, populating their metadata (imports, function declarations, etc.), and generating documentation via MST. This path is implemented for d.Language equal to NoLang or GoLang; other languages return an error.
+
 Signature: func (d *Directive) ExecuteRecursiveDirective() error
-Parameters:
-  - none explicit; uses Directive fields:
-      - Language: controls language handling (NoLang, GoLang supported)
-      - Focus: []string, folders to load packages from
-      - PromptText: string, optional inline prompt
-      - Prompt: string, path to prompt file if PromptText is empty
-      - ApiKey: string, API key for DocumentMST
+
+Parameters: none (uses fields on the Directive: d.Focus, d.PromptText, d.Prompt, d.ApiKey)
+
 Returns:
-  - error: non-nil on failure; nil on success
+- error: non-nil if any step fails, or if the language is unsupported.
+
 Errors/Exceptions:
-  - "failed to populate packages: %v" wraps errors from gMst.Populate / PopulatePackageInformation
-  - "failed to read %v: %v" if PromptText is empty and reading Prompt file fails
-  - "failed to document MST: %v" if mst.DocumentMST fails
-  - "cannot parse language %v. not implemented" if Language is not NoLang or GoLang
+- "failed to populate packages: %v" if gMst.Populate(d.Focus) returns an error.
+- "failed to read %v: %v" if reading the prompt file fails when d.PromptText is empty.
+- "failed to document MST: %v" if mst.DocumentMST(&gMst, prompt, d.ApiKey) returns an error.
+- "cannot parse language %v. not implemented" if d.Language is not NoLang or GoLang.
+- Note: Errors from packages.Load are assigned but not surfaced here.
+
 Side Effects:
-  - Mutates gMst.PackageNodes by appending one PackageNode per loaded package
-  - Creates new PackageNode instances with MST, Package, FunctionDecls, Imports initialized
-  - Per-package documentation is generated by DocumentMST and subsequently updated via UpdateDocsInFile
-  - Logs the number of functions declared per package
+- Mutates gMst via Populate(d.Focus).
+- Each PackageNode is mutated by PopulatePackageInformation(), updating its Imports and FunctionDecls (and related metadata).
+- Calls UpdateDocsInFile() on each discovered package to refresh its documentation.
+- Logs progress and errors related to per-package documentation.
+
 Edge Cases & Assumptions:
-  - If no folders/packages are found, the PackageNodes slice remains unchanged
-  - package loading errors are not surfaced beyond the wrap when populating & documenting MST
-  - Each package's PopulatePackageInformation is responsible for its own internal errors
+- Assumes folders contains valid Go package roots and that packages.Load returns packages for each folder.
+- If no packages are found, the function returns nil with m.PackageNodes left empty or partially populated.
+- If d.PromptText is "", a valid file must be readable from d.Prompt to provide the prompt content.
+- PackageNode.PopulatePackageInformation handles its own internal processing and error reporting.
 
 */
 func (d *Directive) ExecuteRecursiveDirective() error {
@@ -365,14 +357,26 @@ func (d *Directive) ExecuteRecursiveDirective() error {
 }
 
 /*
-Summary: Builds a single, ready-to-send prompt by invoking GetFullPrompt, then sends that prompt as a user message to the OpenAI GPT-4.1 Nano model via the OpenAI API, returning the content of the first response choice.
-Use when you need a complete prompt that incorporates contextual data from files and then obtain the model's reply.
+Summary: Obtain the full prompt via GetFullPrompt and send it to the OpenAI API using model GPT4_1Nano as a chat completion; return the assistant's reply content.
+
 Signature: func (d *Directive) Query41Nano() (string, error)
-Parameters: none (method on Directive)
-Returns: (string, error) - the model's reply content and any error encountered.
-Errors/Exceptions: returns an error if GetFullPrompt fails ("failed to generate full prompt: ..."), or if the OpenAI API call fails ("failed to query 4.1 nano : ...").
-Side Effects: creates an OpenAI client using d.ApiKey; makes a network request to the OpenAI API; may read prompt data from disk via GetFullPrompt.
-Edge Cases & Assumptions: assumes GetFullPrompt returns a valid prompt string on success; assumes the API returns at least one Choice and uses Choices[0].Message.Content; may panic if no choices are returned. The behavior of GetFullPrompt depends on d.PromptText, d.Prompt, d.Focus, and d.Ignore.
+
+Parameters:
+  d *Directive - receiver; uses d.ApiKey and the fields utilized by GetFullPrompt (d.PromptText, d.Prompt, d.Focus, d.Ignore).
+
+Returns:
+  string - the assistant's reply content from the OpenAI model.
+  error  - non-nil if prompt generation or the OpenAI query fails.
+
+Errors/Exceptions:
+  - "failed to generate full prompt: %v" if GetFullPrompt returns an error.
+  - "failed to query 4.1 nano : %v" if the OpenAI API call fails.
+
+Side Effects:
+  Creates an OpenAI client with d.ApiKey and performs a network request to request a chat completion; GetFullPrompt may read prompt templates/files as part of prompt assembly.
+
+Edge Cases & Assumptions:
+  Assumes GetFullPrompt succeeds and returns a non-empty prompt; assumes at least one choice is returned in chatCompletion (access via chatCompletion.Choices[0].Message.Content); uses context.TODO() for the API call.
 
 */
 func (d *Directive) Query41Nano() (string, error) {
@@ -402,12 +406,22 @@ func (d *Directive) Query41Nano() (string, error) {
 }
 
 /*
-Summary: Returns the complete prompt string by using d.PromptText directly when set, or loading the file at d.Prompt and using its contents as the prompt text; then injects the loaded text as a format string into the data produced by formatting.CombineFilesForContext(d.Focus, d.Ignore). Use when you need a single, ready-to-send prompt that includes contextual file data.
+Summary: Build the full prompt by substituting a data blob into the prompt template. If d.PromptText is non-empty, it is used as the template; otherwise, the contents of the file at d.Prompt are read and used. The data blob is produced by formatting.CombineFilesForContext(d.Focus, d.Ignore) and injected via fmt.Sprintf. The result is logged at debug level and returned.
 Signature: func (d *Directive) GetFullPrompt() (string, error)
-Returns: a full prompt string (string) and a non-nil error if reading the prompt source or combining file context fails.
-Errors/Exceptions: returns an error if reading d.Prompt fails (when PromptText == ""), or if formatting.CombineFilesForContext(d.Focus, d.Ignore) returns an error.
-Side Effects: reads files from disk; emits a debug log with the final prompt via log.Debugf.
-Edge Cases & Assumptions: if d.PromptText is non-empty, its value is used as the prompt template; otherwise the contents of the file at d.Prompt are used. The final prompt is produced by applying fmt.Sprintf to the prompt text with the data from CombineFilesForContext. The behavior of CombineFilesForContext with d.Focus and d.Ignore governs the embedded data content.
+Parameters:
+  d *Directive - receiver; uses d.PromptText, d.Prompt, d.Focus, d.Ignore.
+Returns:
+  string - the fully composed prompt text ready for sending to a model.
+  error  - non-nil if reading the prompt template or combining files for context fails.
+Errors/Exceptions:
+  - "failed to read %v: %v" if reading the prompt template file fails.
+  - "failed to combine files for context: %v" if formatting.CombineFilesForContext fails.
+Side Effects:
+  Reads the filesystem (os.ReadFile or equivalent inside CombineFilesForContext); logs the full prompt via log.Debugf.
+Edge Cases & Assumptions:
+  If d.PromptText != "", it is treated as the prompt template; otherwise the template is read from the file at d.Prompt.
+  The template is treated as a format string for a single data argument produced by formatting.CombineFilesForContext(d.Focus, d.Ignore).
+  Directories listed in d.Focus are traversed by CombineFilesForContext in its own logic; files are appended in traversal order.
 
 */
 func (d *Directive) GetFullPrompt() (string, error) {
@@ -435,26 +449,39 @@ func (d *Directive) GetFullPrompt() (string, error) {
 }
 
 /*
-Summary: Populate the receiver d with values from u for any fields that are not already set, without overwriting existing values.
-Use this to apply a default or fallback Directive onto an existing one.
-Signature: func (d *Directive) Update(u Directive) error
+Summary:
+Updates the receiver d by filling in unset fields from the provided Directive u. Only overwrites fields that are currently zero-valued or nil; existing values are preserved. Use when you want to apply a default or fallback Directive to an existing one without clobbering already-specified settings.
+
+Signature:
+func (d *Directive) Update(u Directive) error
+
 Parameters:
-  d: *Directive - the directive to update (mutated in place).
-  u: Directive - the source directive providing fallback values.
+- u: Directive — source of values to apply to d when corresponding fields are unset.
+
 Returns:
-  error - always nil; this function does not produce an error.
-Errors/Exceptions:
-  None.
+- error: always nil; this function does not produce an error.
+
+Details:
+- If d.Kind == NoneDirective, sets d.Kind = u.Kind.
+- If d.Description == "", sets d.Description = u.Description.
+- If d.Short == "", sets d.Short = u.Short.
+- If d.Prompt == "", sets d.Prompt = u.Prompt.
+- If d.PromptText == "", sets d.PromptText = u.PromptText.
+- If d.Focus == nil or len(d.Focus) == 0, sets d.Focus = u.Focus.
+- If d.Ignore == nil or len(d.Ignore) == 0, sets d.Ignore = u.Ignore.
+- If d.Model == NoModel, sets d.Model = u.Model.
+- If d.Output == "", sets d.Output = u.Output.
+- If d.ApiKey == "", sets d.ApiKey = u.ApiKey.
+- If d.LocalDocs == "", sets d.LocalDocs = u.LocalDocs.
+- If d.Servers == nil or len(d.Servers) == 0, sets d.Servers = u.Servers.
+
 Side Effects:
-  Mutates the receiver d by filling in missing fields from u according to specific conditions.
+- Mutates the receiver d by assigning values from u to previously unset fields.
+
 Edge Cases & Assumptions:
-  - If d.Kind == NoneDirective, it is set to u.Kind.
-  - If d.Description, d.Short, d.Prompt, or d.PromptText are empty, they are set from u.
-  - If d.Focus is nil or empty (len == 0), it is set from u.Focus.
-  - If d.Ignore is nil or empty (len == 0), it is set from u.Ignore.
-  - If d.Model == NoModel, it is set from u.Model.
-  - If d.Output, d.ApiKey, or d.LocalDocs are empty, they are set from u.
-  - If d.Servers is nil or empty (len == 0), it is set from u.Servers.
+- Fields use zero-value checks for strings and slices; for Focus/Ignore/Servers, nil or empty slices trigger updates.
+- If u provides zero-values, no change occurs for the corresponding field.
+- The function path does not fail and always returns nil.
 
 */
 func (d *Directive) Update(u Directive) error {
@@ -510,21 +537,29 @@ func (d *Directive) Update(u Directive) error {
 }
 
 /*
-Summary: NewDirective creates a new Directive with the given name and prompt path after validating the prompt file exists. Use it to instantiate a Directive that references a prompt file by its filesystem path.
-Signature: func NewDirective(name, prompt string) (*Directive, error)
+Summary:
+NewDirective validates that the provided prompt path exists and, if so, returns a new Directive with the given name and Prompt fields set. Use it to initialize a Directive that relies on an existing prompt file.
+
+Signature:
+func NewDirective(name, prompt string) (*Directive, error)
+
 Parameters:
-  - name string: the directive's Name.
-  - prompt string: filesystem path to the prompt file; must exist.
+- name: string — the directive name.
+- prompt: string — path to the prompt file; must exist on the filesystem.
+
 Returns:
-  - (*Directive, error): on success, a pointer to Directive with Name: name and Prompt: prompt and nil error; on failure, nil and a descriptive error.
+- *Directive: a pointer to a Directive with Name = name and Prompt = prompt.
+- error: non-nil if the prompt file does not exist.
+
 Errors/Exceptions:
-  - error when the prompt file does not exist: "prompt file %v doesn't exist".
+- error if the prompt file does not exist: "prompt file %v doesn't exist"
+
 Side Effects:
-  - Reads filesystem via os.Stat; does not modify inputs or global state.
+- Checks file existence via os.Stat(prompt).
+
 Edge Cases & Assumptions:
-  - If os.Stat(prompt) returns an error other than NotExist, the function proceeds and returns a Directive without error.
-  - The function only enforces existence for NotExist; it does not verify that prompt is a regular file (directories or symlinks at prompt are treated as existing).
-  - No validation on name (e.g., empty string) is performed.
+- If os.Stat(prompt) returns an error other than non-existence, the function proceeds to return a Directive (no error returned) because the only explicit error check is os.IsNotExist(err).
+- Existence is checked, not the file type; a directory at prompt will still be accepted as valid.
 
 */
 func NewDirective(name, prompt string) (*Directive, error) {

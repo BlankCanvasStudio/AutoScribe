@@ -1,184 +1,196 @@
 # AutoScribe
 
-AutoScribe is a command-line tool designed to facilitate automation and management of code documentation, directives, and configurations. It provides functionalities to create, initialize, update, export, and document code directives and manage configuration files across different scopes (global, user, local).
-
----
+AutoScribe is a command-line application designed for automating code documentation, custom directive management, and data preparation for AI-driven code analysis. It offers tooling for creating, initializing, exporting, and executing custom directives, as well as generating data for retrieval-augmented generation (RAG) workflows on Go codebases.
 
 ## Purpose
 
-The project enables developers and teams to:
-- Manage custom directives with various attributes (kind, description, prompt, model, etc.).
-- Generate and update documentation across codebases.
-- Export and initialize directives based on existing configurations.
-- Remove documentation from files and folders.
-- Handle configurations across global, user, and local scopes.
-- Seamlessly integrate documentation workflows into development processes.
-
----
+This project facilitates automated documentation and intelligent code analysis by allowing users to define custom directives, document code bundles, and generate training data for AI models. Its modular CLI supports scalable and flexible integration with existing documentation and AI workflows.
 
 ## Installation
 
-### Build from Source
-Ensure you have Go 1.23.11 or later installed.
-
+1. Build the binary:
 ```bash
-git clone https://github.com/BlankCanvasStudio/AutoScribe.git
-cd AutoScribe
-make
+make build/autoscribe
+```
+2. Install the binary to system path:
+```bash
+sudo make install
+```
+3. Ensure configuration files and prompts are in place:
+```bash
+sudo cp -r ./dist/prompts/* /etc/autoscribe/prompts/
+sudo cp dist/conf.yml /etc/autoscribe/conf.yml
 ```
 
-### Install via Makefile
-```bash
-make all
-```
+## Dependencies
 
-This will generate the `autoscribe` binary in the `build/` directory.
-
-### System-wide Installation
-Once built, copy the binary to a directory in your `$PATH`:
-
-```bash
-sudo cp build/autoscribe /usr/local/bin/
-```
-
-### Dependencies
-- Go modules:
+- Go 1.23.11 or higher
+- External Go modules:
   - github.com/spf13/cobra
   - github.com/sirupsen/logrus
-  - gopkg.in/yaml.v3
   - github.com/openai/openai-go/v2
+  - gopkg.in/yaml.v3
 
----
+Make sure to run:
+```bash
+go mod download
+```
+to fetch dependencies before building.
 
 ## Usage
 
-Run `autoscribe` with the desired command and subcommand options.
+You can invoke the application with the `asb` command, which supports the following main subcommands:
+
+### Run all directives
 
 ```bash
-autoscribe --help
+asb run
 ```
 
-### Basic Commands
+Executes directives as configured in the scope.
 
-- **Run all directives in scope:**
-  ```bash
-  autoscribe run
-  ```
-
-- **Display version:**
-  ```bash
-  autoscribe version
-  ```
-
-### Example: Create a New Directive
+### Generate RAG data
 
 ```bash
-autoscribe directive create MyDirective prompts/my_prompt.txt
+asb rag [arguments]
 ```
 
-### Example: Initialize Directive in Current Project
+Produces retrieval-augmented generation (RAG) datasets based on specified input packages. Example:
 
 ```bash
-autoscribe directive init MyDirective
+asb rag package1 package2
 ```
 
-### Example: Export a Directive
+Generates question-answer data for functions in the provided Go packages, saving results to `/tmp/rag-data.jsonl`.
+
+### Show chunks length before RAG
 
 ```bash
-autoscribe directive export MyDirective
+asb chunk-count [arguments]
 ```
 
-### Example: Document Files
+Displays the lengths of code chunks before RAG processing.
+
+### Manage directives
+
+Create, initialize, export, or run directives:
 
 ```bash
-autoscribe undoc ./src
+asb directive create [name] [prompt_file]
 ```
 
----
+Creates a new custom directive with the specified name and prompt file.
 
-## Command-Line Options
+```bash
+asb directive init [directive_name] [files]
+```
 
-The tool provides several persistent flags to control scope and configuration behavior:
+Initializes a directive in your current project scope.
 
-| Option | Shortcut | Description | Default |
-|---------|------------|----------------|---------|
-| `--debug` | `-d` | Enable debug logging | false |
-| `--global` | `-g` | Use global configuration scope | false |
-| `--user` | `-u` | Use user configuration scope | false |
-| `--local` | `-l` | Use local (current folder) scope | false |
-| `--prompt` | `-p` | Add additional context to directive prompts | "" |
-| `--config` | `-c` | Specify custom configuration file | "" |
+```bash
+asb directive export [directive_name] [files]
+```
 
-These flags influence how configuration files are selected or created, and how directives operate.
+Exports a directive to configuration files.
 
----
+```bash
+asb directive run [directive_name]
+```
+
+Executes a directive and saves its output.
+
+### Other subcommands
+
+- `version` — Prints the current version
+- `undoc [files/folders]` — Removes documentation from specified files or folders
+- Additional custom directives as generated by the system
+
+### CLI Flags
+
+Global flags supported:
+
+```bash
+--debug                 Enable debug logging
+--global, -g           Use global configuration scope
+--user, -u             Use user configuration scope
+--local, -l            Use local configuration scope (default)
+--prompt, -p          Add additional context to directives
+--config, -c <file>   Specify custom config file
+```
+
+## Examples
+
+1. Run directives:
+
+```bash
+asb run
+```
+
+2. Generate RAG data for packages:
+
+```bash
+asb rag ./mypackage
+```
+
+3. Create a new directive:
+
+```bash
+asb directive create improve_docs "./prompts/improve.yml"
+```
+
+4. Initialize a directive locally:
+
+```bash
+asb directive init improve_docs
+```
+
+5. Export a directive:
+
+```bash
+asb directive export improve_docs
+```
+
+6. Run a specific directive:
+
+```bash
+asb directive run improve_docs
+```
+
+7. Generate chunk length report:
+
+```bash
+asb chunk-count package1 package2
+```
+
+8. Remove documentation:
+
+```bash
+asb undoc ./myproject/*
+```
 
 ## Architecture & Dependencies
 
-The project is organized into several key packages:
+- Uses **Cobra** for CLI command parsing.
+- Uses **Logrus** for structured logging.
+- Integrates with AI services (via `github.com/openai/openai-go/v2`) for questioning and documentation.
+- Modular command structure supports extension with custom directives, documentation management, and RAG tasks.
+- The application configuration is managed via YAML files, with support for global, user, and local scopes.
 
-- `pkg/cli` — Command-line interface setup and command execution.
-- `pkg/cli/directives` — Management of custom directives including creation, initialization, export, and updates.
-- `pkg/cli/docs` — Documentation management tasks like documenting and removing documentation.
-- `pkg/config` — Handling configuration files across different scopes (global, user, local) including loading and saving configurations.
-- `pkg/types` — Definitions for directives, configuration structures, and related types.
+## Building & Customization
 
-**Dependencies:**
-
-- `cobra` for CLI parsing and command management.
-- `logrus` for structured logging.
-- `yaml.v3` for configuration serialization.
-- `openai` for AI-driven documentation generation (implied).
-
----
-
-## Usage Examples
-
-### Running with Debugging Enabled:
-```bash
-autoscribe --debug run
-```
-
-### Creating a New Directive:
-```bash
-autoscribe directive create EncryptFunction prompts/encrypt_prompt.txt
-```
-
-### Initializing a Directive from Current Config:
-```bash
-autoscribe directive init EncryptFunction
-```
-
-### Exporting a Directive to Configs:
-```bash
-autoscribe directive export EncryptFunction
-```
-
-### Removing Documentation from Files:
-```bash
-autoscribe undoc ./src
-```
-
----
+- Modify the `Makefile` as needed.
+- Add your prompts in `/etc/autoscribe/prompts/`.
+- Configure the YAML settings in `/etc/autoscribe/conf.yml`.
 
 ## Notes
 
-- Commands are flexible and can be customized with flags.
-- Directives support attributes that can be programmatically updated via subcommands.
-- Configuration management ensures that settings are scoped appropriately and persisted across different files.
-
----
-
-## Contribution
-
-Contributions are welcome. Please fork the repository, implement enhancements or fixes, and submit pull requests.
-
----
+- The system is designed to be extendable, with dynamic plugin-like directives.
+- Ensure the system has appropriate permissions set for configuration and prompt files.
 
 ## License
 
-This project is licensed under the MIT License.
+Distributed under the MIT License. See `LICENSE` for more information.
 
 ---
 
-**Happy documenting!**
+*Enjoy automating your code documentation with AutoScribe!*

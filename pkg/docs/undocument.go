@@ -15,38 +15,38 @@ import (
 )
 
 /*
-Summary: UndocumentDir recursively searches the provided folder for Go source files and removes
-documentation comments from top-level function declarations, rewriting the files in place.
-If includeTests is false, test files ending with _test.go are skipped. Directories are discovered
-via GetNestedFoldersWithGoFiles and only directories containing at least one .go file are processed.
+Summary:
+UndocumentDir removes Go doc comments from all functions in Go source files under dir, recursively. It also clears the corresponding function Doc and related file-level comment groups, then rewrites and formats the modified files. If includeTests is false, _test.go files are skipped.
 
-Signature: func UndocumentDir(dir string, includeTests bool) error
+Signature:
+UndocumentDir(dir string, includeTests bool) error
 
 Parameters:
-- dir string: root folder to search for Go source files.
-- includeTests bool: if true, include _test.go files in parsing; if false, skip test files.
+- dir: string. Root directory to process recursively for Go files.
+- includeTests: bool. If false, files matching *_test.go are ignored.
 
 Returns:
-- error: non-nil if processing fails at any stage; otherwise nil.
+- error. Non-nil on failure. Causes include:
+  - failure to obtain Go-containing directories,
+  - failure to parse a directory's Go files,
+  - failure to format a file via format.Node,
+  - failure to write a modified file with os.WriteFile.
 
 Errors/Exceptions:
-- non-nil error when GetNestedFoldersWithGoFiles fails to return directories;
-- non-nil error if parsing a directory with parser.ParseDir fails;
-- non-nil error if formatting a file with format.Node fails;
-- non-nil error if writing a modified file with os.WriteFile fails.
+- Propagates descriptive errors from internal steps, such as:
+  - "failed to get all the go directories from %v: %v"
+  - "failed to parse dir %q: %v"
+  - "format %q: %v"
+  - "write %q: %v"
 
 Side Effects:
-- Mutates source files on disk by removing function doc comments and their associated file.Comments.
-- Overwrites each touched file with the dedented, formatted version.
+- Mutates source files on disk by removing function doc comments and related comment groups, then rewrites and saves the updated files (permissions 0644).
 
 Edge Cases & Assumptions:
-- If a Go file has no function doc comments, the file is unchanged.
-- If no directories contain Go files under dir, the function completes with nil.
-- All returned directories are absolute paths; the function relies on GetNestedFoldersWithGoFiles for discovery.
-- The filter used when parsing includes only .go files and optionally excludes _test.go based on includeTests.
-
-Notes:
-- The implementation parses each directory’s AST, clears Doc from top-level function declarations, prunes corresponding comment groups, formats the AST, and writes back to disk.
+- Only files with the exact .go extension are considered; the check is case-sensitive.
+- If no Go files are found, the function returns nil without modifications.
+- Only function documentation comments (fn.Doc) are removed; other non-function comments remain unless tied to a function declaration.
+- Files are reformatted after modification to ensure consistent formatting.
 
 */
 func UndocumentDir(dir string, includeTests bool) error {
@@ -111,30 +111,20 @@ func UndocumentDir(dir string, includeTests bool) error {
 }
 
 /*
-Summary
-UndocumentFile removes GoDoc comments from the Go source file identified by filename, preserving inline comments. It deletes package-level documentation and documentation associated with declarations (functions and general declarations), then reformats and writes the updated file back to disk.
-
-Signature
-func UndocumentFile(filename string) error
-
-Parameters
-- filename: string — path to the Go source file to process.
-
-Returns
-- error: non-nil if parsing, formatting, or writing fails; nil on success.
-
-Errors/Exceptions
-- parse <filename>: error if the Go file cannot be parsed (including syntax errors).
-- format <filename>: error if the AST could not be formatted.
-- write <filename>: error if the updated content cannot be written to disk.
-
-Side Effects
-- Mutates the file at filename by removing GoDoc comments (package and declaration docs) and writing the formatted result back to disk.
-
-Edge Cases & Assumptions
-- Removes only GoDoc groups collected from file.Doc and from d.Doc for *ast.FuncDecl and *ast.GenDecl; inline/comments preserved where not part of a GoDoc group.
-- If there are no GoDoc sections detected, the file may be reformatted but otherwise unchanged.
-- Assumes filename points to a readable/writable, valid Go source file.
+Summary: UndocumentFile removes GoDoc documentation comments from a Go source file and rewrites it without those docs. It targets the package doc and top-level declaration docs, preserving inline comments.
+Signature: func UndocumentFile(filename string) error
+Parameters:
+  - filename: string — path to the Go source file to process; constraints: must be an existing, readable and writable Go source file.
+Returns: error — non-nil if parsing, formatting, or writing fails; nil on success.
+Errors/Exceptions:
+  - parse error: returned as fmt.Errorf("parse %q: %v", filename, err)
+  - format error: returned as fmt.Errorf("format %q: %v", filename, err)
+  - write error: returned as fmt.Errorf("write %q: %v", filename, err)
+Side Effects:
+  - Mutates the file on disk by overwriting it with a version that has GoDoc comments removed (package doc and declaration docs); preserves non-doc inline comments and formatting is normalized.
+Edge Cases & Assumptions:
+  - Assumes the input is valid Go source; if there are no GoDoc comments, the file may still be reformatted.
+  - Inline comments are kept; only GoDoc comment groups (package/decl docs) are removed.
 
 */
 func UndocumentFile(filename string) error {
@@ -190,30 +180,30 @@ func UndocumentFile(filename string) error {
 }
 
 /*
-Summary: Choose between undocumenting a directory or a single file. If path is a directory, it delegates to UndocumentDir with includeTests; otherwise, it delegates to UndocumentFile.
+Summary:
+Undokument processes the path by removing Go doc comments. If path is a directory, it delegates to UndocumentDir(path, includeTests) to recursively strip documentation from Go sources and rewrite files. If path is a file, it delegates to UndocumentFile(path) to remove package and declaration GoDoc comments from that file. When path is a directory, includeTests controls whether *_test.go files are included; when path is a file, includeTests is ignored.
 
-Signature: func Undocument(path string, includeTests bool) error
+Signature:
+func Undocument(path string, includeTests bool) error
 
 Parameters:
-- path string: path to a file or directory to process.
-- includeTests bool: when path is a directory, controls whether _test.go files are included in parsing; ignored when path is a file.
+- path: string — Path to a directory or Go source file to process.
+- includeTests: bool — If path is a directory, include or exclude *_test.go files during processing.
 
 Returns:
-- error: non-nil if stat fails or if the delegated UndocumentDir/UndocumentFile returns an error; nil on success.
+- error — Non-nil on failure. Errors may originate from os.Stat, or from UndocumentDir or UndocumentFile.
 
 Errors/Exceptions:
-- non-nil error if os.Stat(path) fails.
-- non-nil error if UndocumentDir(path, includeTests) fails (when path is a directory).
-- non-nil error if UndocumentFile(path) fails (when path is a file).
+- Propagates errors from:
+  - "failed to stat %v: %v" if stat fails
+  - errors returned by UndocumentDir or UndocumentFile
 
 Side Effects:
-- May mutate the filesystem by updating Go source files via UndocumentDir or UndocumentFile.
-- Writes modified files back to disk as part of the undocumentation process.
+- Mutates on-disk Go source files by removing GoDoc comments, then rewrites and formats the modified files (permissions as in the called helpers).
 
 Edge Cases & Assumptions:
-- If path denotes a directory, the function delegates to UndocumentDir; if not, it delegates to UndocumentFile.
-- The behavior and errors of UndocumentDir/UndocumentFile are propagated to the caller.
-- If path does not exist or is inaccessible, an error from os.Stat is returned.
+- If path is a directory, includeTests governs test file handling; if a file, includeTests is ignored.
+- Only the presence of a directory or file is checked; actual Go source parsing/formatting is performed by UndocumentDir/UndocumentFile.
 
 */
 func Undocument(path string, includeTests bool) error {

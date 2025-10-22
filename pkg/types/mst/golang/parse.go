@@ -12,33 +12,33 @@ import (
 
 /*
 Summary:
-Parses all Go packages under the given foldername using packages.Load with a configured set of needs, constructs a PackageNode for each loaded package, and delegates to PopulatePackageInformation to fill imports, type definitions, and function declarations. Returns the list of PackageNode pointers on success; on failure, returns an error and may return a partially populated slice.
+ParsePackages loads Go packages from the given folder, builds a PackageNode for each loaded package,
+and populates per-package metadata by calling PopulatePackageInformation on each node. The result
+is a slice of *PackageNode ready for analysis, or an error if loading or population fails.
 
 Signature:
 func ParsePackages(foldername string) ([]*PackageNode, error)
 
 Parameters:
-- foldername: string
-  The folder path from which to load packages.
+- foldername: string — path to the root folder to load packages from.
 
 Returns:
-- ([]*PackageNode, error)
-  - On success: a slice of *PackageNode and nil error.
-  - On load failure: nil slice and a non-nil error.
-  - On per-package population failure: a non-nil error and a partially populated slice of PackageNode objects.
+- []*PackageNode: a slice of PackageNode pointers, one per loaded package (order as returned by packages.Load).
+- error: non-nil if loading packages fails or if PopulatePackageInformation fails for any package.
 
 Errors/Exceptions:
-- "failed to load package %v: %v" if packages.Load fails.
-- "failed to populate package information: %v" if PopulatePackageInformation fails for any package (returns the current partial pkgNodes along with the error).
+- non-nil error when packages.Load fails: "failed to load package %v: %v"
+- non-nil error when a package cannot be populated: "failed to populate package information: %v"
 
 Side Effects:
-- Logs debug information about the number of packages seen and declared functions.
-- Allocates and returns new PackageNode objects; Mutates no external state beyond the returned data.
+- Logs debugging information: number of packages seen, and number of functions declared per package.
+- Constructs and mutates in-memory PackageNode structures (Package, FunctionDecls, Imports) per package.
 
 Edge Cases & Assumptions:
-- If no packages are found, returns an empty slice and nil error.
-- Assumes valid foldername and accessible filesystem; errors propagate as above.
-- For each PackageNode, FunctionDecls is initialized as an empty []mst.FunctionDecl and Imports as an empty map[string]string before population.
+- If no syntax files are present, ParsePackages returns an empty slice and nil error.
+- Each pkgNode.PopulatePackageInformation() populates imports, type definitions, and function declarations
+  for its corresponding package; any error short-circuits and is propagated.
+- Assumes alignment between syntax files and compiled Go files within each package when populating data.
 
 */
 func ParsePackages(foldername string) ([]*PackageNode, error) {

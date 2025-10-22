@@ -20,24 +20,28 @@ var IsAiAwareDbBase string = "is-ai-aware.txt"
 var NotAiAwareDbBase string = "not-ai-aware.txt"
 
 /*
-Summary: ExpandPaths expands user home directory shortcuts in UserConfigFile and UserDatabaseDir by replacing a leading "~/"
-with the actual user home directory. If either path starts with "~/", it will be converted to an absolute path; otherwise the value is left unchanged.
+ExpandPaths expands tilde-prefixed paths to absolute paths using the current user's home directory.
+It modifies global variables in place.
+If UserConfigFile begins with \"~/\", it is replaced with the user's home directory plus the remainder of the path.
+Otherwise, if UserDatabaseDir begins with \"~/\", it is replaced similarly.
+Returns an error if the home directory cannot be determined; otherwise returns nil.
+Behavior notes: expansion stops after the first successful expansion (UserConfigFile takes precedence); if neither path requires expansion, returns nil.
 
 Signature: func ExpandPaths() error
 
-Returns:
-- error: non-nil if obtaining the user home directory fails (os.UserHomeDir returns an error). On success, returns nil.
+Parameters: none
+
+Returns: error - non-nil if os.UserHomeDir() fails during expansion; nil on success or if no expansion is needed.
 
 Errors/Exceptions:
-- If os.UserHomeDir() returns an error while expanding either UserConfigFile or UserDatabaseDir, that error is returned immediately.
+- If os.UserHomeDir() returns an error during expansion of UserConfigFile or UserDatabaseDir, that error is returned.
+- No other errors are produced; paths are mutated in place when expanded.
 
-Side Effects:
-- Mutates UserConfigFile or UserDatabaseDir by replacing a leading "~/\" with the user's home directory path.
+Side Effects: Mutates UserConfigFile and/or UserDatabaseDir when expanding \"~/\" prefixes.
 
 Edge Cases & Assumptions:
-- If UserConfigFile or UserDatabaseDir start with "~/" but lack a path component after it (e.g., "~/"), the code expands to the home directory.
-- Only the specific "~/\" prefix is expanded; other forms like "~user" are not handled.
-- Assumes UserConfigFile and UserDatabaseDir are in scope and of type string.
+- Only prefixes exactly matching \"~/\" are expanded; paths starting with other tilde forms (e.g., \"~user\") are not expanded.
+- If both UserConfigFile and UserDatabaseDir start with \"~/\", only UserConfigFile is expanded and the function returns immediately afterward.
 
 */
 func ExpandPaths() error {
@@ -63,30 +67,26 @@ func ExpandPaths() error {
 }
 
 /*
-Summary: expandPath expands a path that begins with ~/ to the current user’s home directory; if the input does not start with ~/, it is returned unchanged.
-Use when you need to resolve user-home-relative paths in a cross-platform way.
+Summary: expandPath expands a path that starts with "~/" to the current user's home directory; otherwise it returns the input unchanged.
 
 Signature: func expandPath(filename string) (string, error)
 
 Parameters:
-- filename: string — the path to potentially expand; if it starts with "~/", it will be expanded to the user’s home directory; otherwise it is returned unchanged.
+- filename: string. The input path. If it begins with "~/", it will be expanded to the user's home directory; otherwise the value is returned as-is.
 
 Returns:
-- string: the expanded path if expansion was performed, or the original filename if no expansion was needed.
-- error: non-nil if os.UserHomeDir() fails during expansion.
+- string: the resulting path, with "~/" expanded when applicable.
+- error: non-nil if the user's home directory cannot be determined.
 
 Errors/Exceptions:
-- error is non-nil only when os.UserHomeDir() fails to determine the current user’s home directory; in this case the function returns (filename, err).
+- error from os.UserHomeDir() when the home directory cannot be determined.
 
 Side Effects:
-- Calls os.UserHomeDir to obtain the current user’s home directory.
-- Uses filepath.Join to construct the expanded path.
-- No file I/O or external mutations beyond retrieving the home directory.
+- Reads the current user's home directory via os.UserHomeDir().
 
 Edge Cases & Assumptions:
-- If filename does not start with \"~/\", the function returns filename, nil.
-- If filename starts with \"~/\" but the home directory cannot be determined, returns filename, err.
-- Handles OS-specific path separators via filepath.Join.
+- Only the "~/" prefix is expanded; other forms like "~user" are not supported.
+- If filename == "~/", the result is the home directory path as produced by filepath.Join(home, filename[2:]).
 
 */
 func expandPath(filename string) (string, error) {

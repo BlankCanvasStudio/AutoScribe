@@ -10,31 +10,31 @@ import (
 )
 
 /*
-Summary: Recursively search the provided folder for Go source files and return a
-sorted, deduplicated list of absolute directories that contain at least one .go file.
-The function logs the search and collects the directory of each .go file found.
+Summary:
+GetNestedFoldersWithGoFiles recursively scans the provided folder for Go source files (*.go) and returns the unique set of directories that contain at least one such file. The returned paths are absolute and sorted ascending.
 
-Signature: func GetNestedFoldersWithGoFiles(folder string) ([]string, error)
+Signature:
+GetNestedFoldersWithGoFiles(folder string) ([]string, error)
 
 Parameters:
-- folder string: root folder to search for .go files.
+- folder: string. Path to the root directory to search recursively for Go files.
 
 Returns:
-- []string: sorted, deduplicated absolute directory paths containing at least one .go file.
-- error: non-nil if the directory walk fails; the error is wrapped with context.
+- []string: absolute directory paths containing at least one .go file, sorted ascending. Empty slice if none are found.
+- error: non-nil if the directory walk or path resolution fails.
 
 Errors/Exceptions:
-- non-nil error if filepath.WalkDir returns an error (e.g., permission denied, missing path).
-- error during filepath.Abs(path) propagation causes a non-nil error return.
+- If filepath.Abs(path) fails for a matched .go file, the error is returned.
+- If filepath.WalkDir encounters an error, the function returns fmt.Errorf("failed to walk directory for go files: %v", err).
 
 Side Effects:
-- Logs: log.Debugf("folders searching: %v", folder).
-- Allocates memory for the result and the internal seen map.
+- Logs a debug message: log.Debugf("folders searching: %v", folder).
+- Traverses the filesystem and builds a deduplicated set of directories containing Go files.
 
 Edge Cases & Assumptions:
-- If no .go files are found, returns []string{} with nil error.
-- Returned paths are absolute; directories are deduplicated and sorted.
-- .go files in nested subdirectories are accounted for via their parent directories.
+- Only files with the exact .go extension are considered; the check is case-sensitive.
+- If no .go files exist, the function returns an empty slice and nil error.
+- Directories are collected from the absolute path of each discovered .go file; duplicates are eliminated via a seen map, and results are sorted before returning.
 
 */
 func GetNestedFoldersWithGoFiles(folder string) ([]string, error) {

@@ -14,30 +14,31 @@ import (
 )
 
 /*
-Summary:
-DocumentFunctions recursively documents a FunctionInfo and its dependencies. It skips already-documented or AI-aware items, traverses declarations' Calls to document their Info as needed, and marks the input as documented upon completion. Use this to ensure complete, consistent documentation coverage for a function node and its call graph.
+Summary: DocumentFunctions prepares a FunctionInfo for documentation by ensuring all referenced
+functions within f.Declaration are either documented or AI-aware, then marks f as documented.
+If the function is already AI-aware, already documented, or has no Declaration, it returns nil
+without changes.
 
-Signature:
-func DocumentFunctions(f *FunctionInfo) error
+Signature: func DocumentFunctions(f *FunctionInfo) error
 
 Parameters:
-- f: *FunctionInfo — the function node to document.
+  - f: *FunctionInfo — the function to document; may be updated in place. If f.Declaration is nil,
+    a debug message is logged and the function returns nil, assuming it is defined in another package.
 
 Returns:
-- error — non-nil if a nested documentation step fails; otherwise nil.
+  - error: non-nil if a recursive documentation call fails; otherwise nil.
 
 Errors/Exceptions:
-- Returns a formatted error when a recursive call fails: "failed to document call %v in %v: %v".
-- May return nil early in cases where documentation is not needed (AiAware, already documented, or WasDocumented, or Declaration is nil).
+  - "failed to document call %v in %v: %v" if a recursive DocumentFunctions call returns an error.
 
 Side Effects:
-- May mutate f.Documented = true.
-- May recursively mutate other FunctionInfo instances via DocumentFunctions(f.Declaration.Calls[i].Info).
+  - Sets f.Documented = true on success.
+  - May recursively call DocumentFunctions on f.Declaration.Calls[i].Info for each undocumented, non-AI-aware call.
 
 Edge Cases & Assumptions:
-- If f.AiAware || f.Documented || f.WasDocumented, the function returns nil without changes.
-- If f.Declaration is nil, logs a debug message and returns nil (assumes the function is defined in another package).
-- The function assumes valid, non-nil structures for Declaration and Calls when proceeding with recursion; if a nested call fails, the error propagates up.
+  - If f.AiAware || f.Documented || f.WasDocumented, the function returns nil immediately.
+  - If f.Declaration == nil, logs a debug message and returns nil (assumes definition elsewhere).
+  - The GPT-based documentation logic is present but currently commented out.
 
 */
 func DocumentFunctions(f *FunctionInfo) error {
@@ -90,29 +91,35 @@ func DocumentFunctions(f *FunctionInfo) error {
 }
 
 /*
-Summary: Inserts the string insertion into the file at path at the given byte offset,
-         replacing the content after the offset with the insertion, and writes back
-         to the same path. Use when you need to inject text at a specific byte offset.
+Summary: Inserts insertion into the file at the given byte offset.
+It reads the file at path, validates offset, and writes the modified content back
+to path with insertion inserted at offset.
+Use when you need to programmatically inject text into a file at a specific byte position.
+
 Signature: func insertIntoFile(path string, offset int, insertion string) error
+
 Parameters:
-  path: string - path to the target file.
-  offset: int - byte offset where insertion occurs; must satisfy 0 <= offset <= len(data).
-  insertion: string - text to insert at the offset.
+- path string: path to the target file.
+- offset int: zero-based byte offset where insertion occurs; must satisfy 0 <= offset <= len(data).
+- insertion string: content to insert at offset.
+
 Returns:
-  error - non-nil if reading or writing the file fails, or if offset is out of range.
-            Specifically, offset out of range occurs when offset < 0 || offset > len(data).
+- error: non-nil if reading, offset validation, or writing fails.
+
 Errors/Exceptions:
-  - offset out of range when offset is outside [0, len(data)].
-  - errors from os.ReadFile(path) are propagated as-is.
-  - errors from os.WriteFile(path, out, 0644) are propagated as-is.
+- if os.ReadFile(path) fails, the error is returned.
+- if offset < 0 || offset > len(data), returns fmt.Errorf("offset out of range").
+- if os.WriteFile fails, the error is returned.
+
 Side Effects:
-  - Reads the entire file content from path.
-  - Writes the modified content back to path with permissions 0644.
-  - May allocate memory proportional to the file size.
+- Reads the file at path; mutates its content by inserting insertion at offset.
+- Writes the updated content back to path with permissions 0644.
+
 Edge Cases & Assumptions:
-  - offset can be 0 (insert at start) or len(data) (append at end).
-  - insertion may be empty (no change to content).
-  - path must be accessible for reading and writing; errors are returned if not.
+- offset == 0 inserts at the start; offset == len(data) appends.
+- insertion may be empty; file content remains unchanged except for the insertion.
+- path must be a writable regular file; no directory creation is performed.
+- Reads entire file into memory; not suitable for very large files.
 
 */
 func insertIntoFile(path string, offset int, insertion string) error {

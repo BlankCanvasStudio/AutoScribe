@@ -9,24 +9,35 @@ import (
 )
 
 /*
-Summary: CreateNewDirective creates a new Directive from the given name and prompt, then updates each provided config file by pushing the current loaded config, loading the file, assigning the new directive to Settings.Directives[name], and saving the updated config to disk. A final PopLoadedConfig reverts the config stack.
-Signature: func CreateNewDirective(name string, prompt string, configFiles []string) error
+Summary:
+CreateNewDirective orchestrates the creation of a new Directive using name and prompt, then applies it to each path in configFiles. It relies on types.NewDirective(name, prompt) to validate the prompt path, and for each config file it preserves the current configuration, resets to a fresh one, loads the target file, inserts the new directive, and persists the updated configuration.
+
+Signature:
+func CreateNewDirective(name string, prompt string, configFiles []string) error
+
 Parameters:
-- name string: the directive's Name.
-- prompt string: filesystem path to the prompt; passed to types.NewDirective.
-- configFiles []string: list of config file paths to update with the new directive.
+- name: string — the directive name.
+- prompt: string — path to the prompt file; must exist on the filesystem. This validation is performed by types.NewDirective.
+- configFiles: []string — list of config file paths to update.
+
 Returns:
-- error: nil on success; non-nil if directive creation or any config save fails.
+- error — non-nil on failure; nil on success.
+  - Non-nil when creating the new directive fails: "failed to create new directive %v: %v".
+  - Non-nil when saving any updated config file fails: "failed to save new directive: %v".
+
 Errors/Exceptions:
-- error when creating the new directive: "failed to create new directive %v: %v"
-- error when saving a config file: "failed to save new directive: %v"
+- error from NewDirective if the prompt path is invalid: "failed to create new directive %v: %v".
+- error from config.SaveConfigFile for any configFile: propagated as "failed to save new directive: %v".
+
 Side Effects:
-- Mutates Settings through Load/Save of each config file.
-- Pushes and pops the loaded config stack around per-file operations.
-- Sets config.Settings.Directives[name] to *newDirective for each file.
+- Mutates global config state via config.PushLoadedConfig, config.Settings, config.LoadConfigFile, and config.SaveConfigFile.
+- For each configFile, updates Settings.Directives[name] to the new directive and persists to disk.
+- Logs/debug instrumentation occurs (e.g., directive creation and config updates).
+
 Edge Cases & Assumptions:
-- If configFiles is empty, no per-file updates occur and the function returns nil after creating the directive.
-- PopLoadedConfig is called after processing all files; its return value is ignored.
+- If configFiles is empty, the function performs no updates and returns nil.
+- Assumes ConfigStack and Settings are package-global; uses PushLoadedConfig/PopLoadedConfig to manage state across each file.
+- If the prompt file does not exist, the error from NewDirective is propagated.
 
 */
 func CreateNewDirective(name string, prompt string, configFiles []string) error {
