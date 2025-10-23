@@ -37,7 +37,16 @@ Thesis on how chunking techniques change retrieval
 More RAG code generation techniques
     - https://arxiv.org/pdf/2110.08512
 
+## Bug fixing study with data set:
+    - https://arxiv.org/pdf/2411.10213
+    (SWE Bench)
 
+
+Code completer with open source code and dataset:
+    - https://aclanthology.org/2023.emnlp-main.151.pdf
+
+Third benchmark with code and dataset:
+    - https://arxiv.org/pdf/2310.11248
 
 
 
